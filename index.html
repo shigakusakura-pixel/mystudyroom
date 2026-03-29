@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shigaku — My Study Room</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Noto+Sans+JP:wght@400;700;900&display=swap');
+
+:root {
+  --navy: #1a2e4a;
+  --navy-light: #2a4570;
+  --gold: #b8942e;
+  --gold-light: #d4ad3e;
+  --gold-bg: #faf6eb;
+  --bg: #f7f8fb;
+  --white: #ffffff;
+  --text: #1a2e4a;
+  --sub: #6a7a90;
+  --border: #e2e6ee;
+  --card-shadow: rgba(26,46,74,0.06);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Sans JP', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* 背景装飾 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 15% 0%, rgba(180,148,46,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 100%, rgba(26,46,74,0.04) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 20px 60px;
+}
+
+/* ヘッダー */
+.header {
+  text-align: center;
+  margin-bottom: 48px;
+  animation: fadeDown 0.8s ease both;
+}
+
+.header-top {
+  background: linear-gradient(135deg, #2963B1, #3572c0);
+  border-radius: 20px;
+  padding: 36px 24px 36px;
+  margin-bottom: 20px;
+  position: relative;
+  border: 3px solid var(--gold-light);
+  box-shadow: 0 4px 20px rgba(41,99,177,0.15), 0 0 0 1px rgba(212,173,62,0.2);
+}
+
+.header-top::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  right: -20%;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(180,148,46,0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.header-top::after {
+  content: '';
+  position: absolute;
+  bottom: -20%;
+  left: -10%;
+  width: 160px;
+  height: 160px;
+  background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.header .school-name {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(1.7rem, 7.5vw, 3.2rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  background: linear-gradient(135deg, #d4ad3e, #f0d060, #d4ad3e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.35;
+  position: relative;
+  padding: 0 4px 4px;
+}
+
+.header .room-name {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(1.1rem, 4.5vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: #ffffff;
+  margin-top: 6px;
+  text-transform: uppercase;
+  position: relative;
+}
+
+.header .subtitle {
+  font-size: 0.92rem;
+  color: var(--sub);
+  letter-spacing: 0.08em;
+  margin-top: 16px;
+}
+
+/* セクション */
+.section {
+  margin-bottom: 28px;
+  animation: fadeUp 0.8s ease both;
+}
+.section:nth-child(2) { animation-delay: 0.1s; }
+.section:nth-child(3) { animation-delay: 0.15s; }
+.section:nth-child(4) { animation-delay: 0.2s; }
+.section:nth-child(5) { animation-delay: 0.25s; }
+.section:nth-child(6) { animation-delay: 0.3s; }
+
+.section-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 700;
+  margin-bottom: 10px;
+  padding-left: 2px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border), transparent);
+}
+
+/* カード */
+.card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px 22px;
+  margin-bottom: 10px;
+  text-decoration: none;
+  color: var(--text);
+  transition: all 0.25s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 12px var(--card-shadow);
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--gold), var(--gold-light));
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.card:hover::before { opacity: 1; }
+.card:hover {
+  border-color: var(--gold-light);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(26,46,74,0.1), 0 2px 8px rgba(180,148,46,0.08);
+}
+
+.card.available:hover .card-arrow { transform: translateX(4px); }
+
+.card-icon {
+  font-size: 1.8rem;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--gold-bg);
+  border: 1px solid rgba(180,148,46,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.card-body { flex: 1; }
+
+.card-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  margin-bottom: 3px;
+  color: var(--navy);
+}
+
+.card-title-en {
+  font-family: 'Playfair Display', serif;
+  font-size: 0.8rem;
+  color: var(--gold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.card-desc {
+  font-size: 0.82rem;
+  color: var(--sub);
+  margin-top: 5px;
+  line-height: 1.55;
+}
+
+.card-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.badge-ready {
+  background: #edf8f0;
+  color: #2a9d5c;
+  border: 1px solid #c4ebd0;
+}
+.badge-soon {
+  background: var(--gold-bg);
+  color: var(--gold);
+  border: 1px solid rgba(180,148,46,0.25);
+}
+
+.card-arrow {
+  color: var(--gold);
+  font-size: 1.4rem;
+  transition: transform 0.2s;
+  opacity: 0.6;
+  font-weight: 700;
+}
+
+.card.coming-soon {
+  opacity: 0.5;
+  cursor: default;
+}
+.card.coming-soon:hover {
+  transform: none;
+  box-shadow: 0 2px 12px var(--card-shadow);
+  border-color: var(--border);
+}
+.card.coming-soon:hover::before { opacity: 0; }
+
+/* フッター */
+.footer {
+  text-align: center;
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  animation: fadeUp 0.8s 0.4s ease both;
+}
+.footer p {
+  font-size: 0.78rem;
+  color: var(--sub);
+  letter-spacing: 0.08em;
+}
+.footer .gold { color: var(--gold); font-weight: 700; }
+
+/* アニメーション */
+@keyframes fadeDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ヘッダー -->
+  <div class="header">
+    <div class="header-top">
+      <div class="school-name">Shigaku Seminar</div>
+      <div class="room-name">My Study Room</div>
+    </div>
+    <div class="subtitle">志学ゼミナール｜オンライン学習教材</div>
+  </div>
+
+  <!-- 学習解説動画 -->
+  <div class="section">
+    <div class="section-label">Online learning — 解説動画</div>
+    <a class="card available" href="https://shigaku-mystudy.com" target="_blank">
+      <div class="card-icon">🎞️</div>
+      <div class="card-body">
+        <div class="card-title">学習解説動画</div>
+        <div class="card-title-en">Shigaku Online Learning</div>
+        <div class="card-desc">英･数･社･理･国｜解説動画で学ぼう</div>
+      </div>
+      <span class="card-badge badge-ready">● Ready</span>
+      <div class="card-arrow">›</div>
+    </a>
+  </div>
+
+  <!-- 英単語 -->
+  <div class="section">
+    <div class="section-label">English — 英語</div>
+    <a class="card available" href="https://shigakusakura-pixel.github.io/tango/">
+      <div class="card-icon">🌐</div>
+      <div class="card-body">
+        <div class="card-title">中学英語 英単語</div>
+        <div class="card-title-en">Junior High — English Vocabulary</div>
+        <div class="card-desc">New Horizon 英単語チャレンジ</div>
+      </div>
+      <span class="card-badge badge-ready">● Ready</span>
+      <div class="card-arrow">›</div>
+    </a>
+  </div>
+
+  <!-- 社会 -->
+  <div class="section">
+    <div class="section-label">Social Studies — 社会</div>
+    <a class="card available" href="https://shigakusakura-pixel.github.io/syakai/">
+      <div class="card-icon">📚</div>
+      <div class="card-body">
+        <div class="card-title">中学社会 一問一答</div>
+        <div class="card-title-en">Junior High — Social Studies</div>
+        <div class="card-desc">地理・歴史・公民｜穴埋めチャレンジ 全480問<br>要点チェック 全8単元</div>
+      </div>
+      <span class="card-badge badge-ready">● Ready</span>
+      <div class="card-arrow">›</div>
+    </a>
+  </div>
+
+  <!-- 理科 -->
+  <div class="section">
+    <div class="section-label">Science — 理科</div>
+    <a class="card available" href="https://shigakusakura-pixel.github.io/rika/">
+      <div class="card-icon">🔬</div>
+      <div class="card-body">
+        <div class="card-title">中学理科 一問一答</div>
+        <div class="card-title-en">Junior High — Science</div>
+        <div class="card-desc">物理・化学・生物・地学｜穴埋めチャレンジ<br>要点チェック 全12単元</div>
+      </div>
+      <span class="card-badge badge-ready">● Ready</span>
+      <div class="card-arrow">›</div>
+    </a>
+  </div>
+
+  <!-- 数学 -->
+  <div class="section">
+    <div class="section-label">Mathematics — 数学</div>
+    <div class="card coming-soon">
+      <div class="card-icon">📐</div>
+      <div class="card-body">
+        <div class="card-title">中学数学 一問一答</div>
+        <div class="card-title-en">Junior High — Mathematics</div>
+        <div class="card-desc">計算・図形・関数・データ｜準備中</div>
+      </div>
+      <span class="card-badge badge-soon">Coming Soon</span>
+    </div>
+  </div>
+
+  <!-- フッター -->
+  <div class="footer">
+    <p>© <span class="gold">Shigaku Seminar</span> — All Rights Reserved</p>
+    <p style="margin-top:4px;">志学ゼミナール｜My Study Room</p>
+  </div>
+
+</div>
+</body>
+</html>
