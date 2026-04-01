@@ -19,7 +19,7 @@
   --sub: #6a7a90;
   --border: #e2e6ee;
   --card-shadow: rgba(26,46,74,0.06);
-  --accent-green: #2a9d8f; /* 連絡先用の綺麗なグリーン */
+  --accent-green: #2a9d8f;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -145,12 +145,11 @@ body::before {
   left: 16px;
 }
 
-/* お知らせヘッダー（タイトルと連絡先の横並び用） */
 .message-header {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  flex-wrap: wrap; /* スマホで折り返す設定 */
+  flex-wrap: wrap;
   margin-bottom: 8px;
   padding-left: 28px;
   gap: 10px;
@@ -158,14 +157,14 @@ body::before {
 
 .message-title {
   font-weight: 700;
-  color: var(--gold); /* タイトルをゴールドに変更 */
+  color: var(--gold);
   font-size: 1.05rem;
   letter-spacing: 0.05em;
 }
 
 .contact-info {
-  font-size: 0.75rem; /* 本文より少し小さめ */
-  color: var(--accent-green); /* きれいなグリーン */
+  font-size: 0.75rem;
+  color: var(--accent-green);
   font-weight: 500;
 }
 
@@ -299,6 +298,12 @@ body::before {
   line-height: 1.55;
 }
 
+/* ★不自然な改行を防ぐためのクラス */
+.nowrap {
+  display: inline-block;
+  white-space: nowrap;
+}
+
 .card-badge {
   font-size: 0.7rem;
   font-weight: 700;
@@ -373,7 +378,7 @@ body::before {
       <div class="contact-info">📧 info@shigakusemi.com &nbsp;&nbsp; 📞 0986-26-7532</div>
     </div>
     <div class="message-content">
-      志学生の学力向上のためのサイト！<br>
+      志学生学力向上サイト！My Study "Myスタ". 反復、反復、定着!!<br>
       日々の学習のモチベーションアップにぜひご活用ください！
     </div>
   </div>
@@ -387,7 +392,7 @@ body::before {
         <div class="card-body">
           <div class="card-title">学習解説動画</div>
           <div class="card-title-en">Shigaku Online Learning</div>
-          <div class="card-desc">英･数･社･理･国｜解説動画で学ぼう</div>
+          <div class="card-desc"><span class="nowrap">英･数･社･理･国｜</span><span class="nowrap">解説動画で学ぼう</span></div>
         </div>
         <span class="card-badge badge-ready">● Ready</span>
         <div class="card-arrow">›</div>
@@ -401,7 +406,7 @@ body::before {
         <div class="card-body">
           <div class="card-title">中学英語 英単語</div>
           <div class="card-title-en">Junior High — English Vocab</div>
-          <div class="card-desc">New Horizon 英単語チャレンジ</div>
+          <div class="card-desc"><span class="nowrap">New Horizon</span> <span class="nowrap">英単語チャレンジ</span></div>
         </div>
         <span class="card-badge badge-ready">● Ready</span>
         <div class="card-arrow">›</div>
@@ -415,7 +420,7 @@ body::before {
         <div class="card-body">
           <div class="card-title">中学数学 一問一答</div>
           <div class="card-title-en">Junior High — Mathematics</div>
-          <div class="card-desc">計算・図形・関数・データ｜準備中</div>
+          <div class="card-desc"><span class="nowrap">計算・図形・関数・データ｜</span><span class="nowrap">準備中</span></div>
         </div>
         <span class="card-badge badge-soon">Coming Soon</span>
       </div>
@@ -428,7 +433,7 @@ body::before {
         <div class="card-body">
           <div class="card-title">中学社会 一問一答</div>
           <div class="card-title-en">Junior High — Social Studies</div>
-          <div class="card-desc">地理・歴史・公民｜穴埋めチャレンジ等</div>
+          <div class="card-desc"><span class="nowrap">地理・歴史・公民｜</span><span class="nowrap">穴埋めチャレンジ等</span></div>
         </div>
         <span class="card-badge badge-ready">● Ready</span>
         <div class="card-arrow">›</div>
@@ -442,7 +447,7 @@ body::before {
         <div class="card-body">
           <div class="card-title">中学理科 一問一答</div>
           <div class="card-title-en">Junior High — Science</div>
-          <div class="card-desc">物理・化学・生物・地学｜穴埋めチャレンジ等</div>
+          <div class="card-desc"><span class="nowrap">物理・化学・生物・地学｜</span><span class="nowrap">穴埋めチャレンジ等</span></div>
         </div>
         <span class="card-badge badge-ready">● Ready</span>
         <div class="card-arrow">›</div>
@@ -456,7 +461,7 @@ body::before {
         <div class="card-body">
           <div class="card-title">中学国語 一問一答</div>
           <div class="card-title-en">Junior High — Japanese</div>
-          <div class="card-desc">国文法・古典・漢文</div>
+          <div class="card-desc"><span class="nowrap">国文法・</span><span class="nowrap">古典・漢文</span></div>
         </div>
        <span class="card-badge badge-ready">● Ready</span>
        <div class="card-arrow">›</div>
