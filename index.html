@@ -19,6 +19,7 @@
   --sub: #6a7a90;
   --border: #e2e6ee;
   --card-shadow: rgba(26,46,74,0.06);
+  --accent-green: #2a9d8f; /* 連絡先用の綺麗なグリーン */
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -46,7 +47,7 @@ body::before {
 .container {
   position: relative;
   z-index: 1;
-  max-width: 680px; /* スマホ時の基本幅 */
+  max-width: 680px;
   margin: 0 auto;
   padding: 40px 20px 60px;
   transition: max-width 0.3s ease;
@@ -135,6 +136,7 @@ body::before {
   animation: fadeUp 0.8s 0.1s ease both;
   position: relative;
 }
+
 .message-box::before {
   content: '📢';
   font-size: 1.2rem;
@@ -142,14 +144,31 @@ body::before {
   top: 18px;
   left: 16px;
 }
-.message-title {
-  font-weight: 700;
-  color: var(--navy);
+
+/* お知らせヘッダー（タイトルと連絡先の横並び用） */
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap; /* スマホで折り返す設定 */
   margin-bottom: 8px;
   padding-left: 28px;
+  gap: 10px;
+}
+
+.message-title {
+  font-weight: 700;
+  color: var(--gold); /* タイトルをゴールドに変更 */
   font-size: 1.05rem;
   letter-spacing: 0.05em;
 }
+
+.contact-info {
+  font-size: 0.75rem; /* 本文より少し小さめ */
+  color: var(--accent-green); /* きれいなグリーン */
+  font-weight: 500;
+}
+
 .message-content {
   font-size: 0.88rem;
   color: var(--sub);
@@ -160,27 +179,25 @@ body::before {
 /* カードのグリッドレイアウト */
 .card-grid {
   display: grid;
-  grid-template-columns: 1fr; /* スマホは1列 */
+  grid-template-columns: 1fr;
   gap: 24px 20px;
 }
 
-/* PC・タブレット時のレイアウト変更 */
 @media (min-width: 768px) {
   .container {
-    max-width: 880px; /* 2列配置のために全体幅を広げる */
+    max-width: 880px;
   }
   .card-grid {
-    grid-template-columns: repeat(2, 1fr); /* 2列にする */
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-/* セクション */
 .section {
   display: flex;
   flex-direction: column;
   animation: fadeUp 0.8s ease both;
 }
-/* グリッド内のアニメーション順序 */
+
 .card-grid .section:nth-child(1) { animation-delay: 0.15s; }
 .card-grid .section:nth-child(2) { animation-delay: 0.2s; }
 .card-grid .section:nth-child(3) { animation-delay: 0.25s; }
@@ -207,7 +224,6 @@ body::before {
   background: linear-gradient(90deg, var(--border), transparent);
 }
 
-/* カード */
 .card {
   display: flex;
   align-items: center;
@@ -223,7 +239,7 @@ body::before {
   position: relative;
   overflow: hidden;
   box-shadow: 0 2px 12px var(--card-shadow);
-  flex: 1; /* 高さを揃える */
+  flex: 1;
 }
 
 .card::before {
@@ -244,8 +260,6 @@ body::before {
   transform: translateY(-2px);
   box-shadow: 0 8px 28px rgba(26,46,74,0.1), 0 2px 8px rgba(180,148,46,0.08);
 }
-
-.card.available:hover .card-arrow { transform: translateX(4px); }
 
 .card-icon {
   font-size: 1.8rem;
@@ -316,12 +330,6 @@ body::before {
   opacity: 0.5;
   cursor: default;
 }
-.card.coming-soon:hover {
-  transform: none;
-  box-shadow: 0 2px 12px var(--card-shadow);
-  border-color: var(--border);
-}
-.card.coming-soon:hover::before { opacity: 0; }
 
 /* フッター */
 .footer {
@@ -338,7 +346,6 @@ body::before {
 }
 .footer .gold { color: var(--gold); font-weight: 700; }
 
-/* アニメーション */
 @keyframes fadeDown {
   from { opacity: 0; transform: translateY(-20px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -361,9 +368,12 @@ body::before {
   </div>
 
   <div class="message-box">
-    <div class="message-title">Notice from Shigaku</div>
+    <div class="message-header">
+      <div class="message-title">Notice from Shigaku</div>
+      <div class="contact-info">📧 info@shigakusemi.com &nbsp;&nbsp; 📞 0986-26-7532</div>
+    </div>
     <div class="message-content">
-      ここに生徒の皆さんへのメッセージや、今月の目標、模試のお知らせなどを自由に記載できます。<br>
+      志学生の学力向上のためこのサイト！<br>
       日々の学習のモチベーションアップにぜひご活用ください！
     </div>
   </div>
@@ -453,7 +463,9 @@ body::before {
       </a>
     </div>
 
-  </div> <div class="footer">
+  </div>
+
+  <div class="footer">
     <p>© <span class="gold">Shigaku Seminar</span> — All Rights Reserved</p>
     <p style="margin-top:4px;">志学ゼミナール｜My Study Room</p>
   </div>
