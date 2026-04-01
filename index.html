@@ -46,15 +46,16 @@ body::before {
 .container {
   position: relative;
   z-index: 1;
-  max-width: 680px;
+  max-width: 680px; /* スマホ時の基本幅 */
   margin: 0 auto;
   padding: 40px 20px 60px;
+  transition: max-width 0.3s ease;
 }
 
 /* ヘッダー */
 .header {
   text-align: center;
-  margin-bottom: 48px;
+  margin-bottom: 32px;
   animation: fadeDown 0.8s ease both;
 }
 
@@ -100,9 +101,9 @@ body::before {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  line-height: 1.15;
+  line-height: 1.3;
   position: relative;
-  padding: 0 4px;
+  padding: 0 4px 0.15em;
 }
 
 .header .room-name {
@@ -111,7 +112,7 @@ body::before {
   font-weight: 700;
   letter-spacing: 0.22em;
   color: #ffffff;
-  margin-top: 6px;
+  margin-top: 0;
   text-transform: uppercase;
   position: relative;
 }
@@ -123,16 +124,69 @@ body::before {
   margin-top: 16px;
 }
 
+/* メッセージ枠 */
+.message-box {
+  background: var(--white);
+  border-left: 5px solid var(--gold-light);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 40px;
+  box-shadow: 0 4px 16px var(--card-shadow);
+  animation: fadeUp 0.8s 0.1s ease both;
+  position: relative;
+}
+.message-box::before {
+  content: '📢';
+  font-size: 1.2rem;
+  position: absolute;
+  top: 18px;
+  left: 16px;
+}
+.message-title {
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 8px;
+  padding-left: 28px;
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+}
+.message-content {
+  font-size: 0.88rem;
+  color: var(--sub);
+  line-height: 1.6;
+  padding-left: 28px;
+}
+
+/* カードのグリッドレイアウト */
+.card-grid {
+  display: grid;
+  grid-template-columns: 1fr; /* スマホは1列 */
+  gap: 24px 20px;
+}
+
+/* PC・タブレット時のレイアウト変更 */
+@media (min-width: 768px) {
+  .container {
+    max-width: 880px; /* 2列配置のために全体幅を広げる */
+  }
+  .card-grid {
+    grid-template-columns: repeat(2, 1fr); /* 2列にする */
+  }
+}
+
 /* セクション */
 .section {
-  margin-bottom: 28px;
+  display: flex;
+  flex-direction: column;
   animation: fadeUp 0.8s ease both;
 }
-.section:nth-child(2) { animation-delay: 0.1s; }
-.section:nth-child(3) { animation-delay: 0.15s; }
-.section:nth-child(4) { animation-delay: 0.2s; }
-.section:nth-child(5) { animation-delay: 0.25s; }
-.section:nth-child(6) { animation-delay: 0.3s; }
+/* グリッド内のアニメーション順序 */
+.card-grid .section:nth-child(1) { animation-delay: 0.15s; }
+.card-grid .section:nth-child(2) { animation-delay: 0.2s; }
+.card-grid .section:nth-child(3) { animation-delay: 0.25s; }
+.card-grid .section:nth-child(4) { animation-delay: 0.3s; }
+.card-grid .section:nth-child(5) { animation-delay: 0.35s; }
+.card-grid .section:nth-child(6) { animation-delay: 0.4s; }
 
 .section-label {
   font-size: 0.78rem;
@@ -162,7 +216,6 @@ body::before {
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 20px 22px;
-  margin-bottom: 10px;
   text-decoration: none;
   color: var(--text);
   transition: all 0.25s ease;
@@ -170,6 +223,7 @@ body::before {
   position: relative;
   overflow: hidden;
   box-shadow: 0 2px 12px var(--card-shadow);
+  flex: 1; /* 高さを揃える */
 }
 
 .card::before {
@@ -275,7 +329,7 @@ body::before {
   margin-top: 48px;
   padding-top: 24px;
   border-top: 1px solid var(--border);
-  animation: fadeUp 0.8s 0.4s ease both;
+  animation: fadeUp 0.8s 0.6s ease both;
 }
 .footer p {
   font-size: 0.78rem;
@@ -298,7 +352,6 @@ body::before {
 <body>
 <div class="container">
 
-  <!-- ヘッダー -->
   <div class="header">
     <div class="header-top">
       <div class="school-name">Shigaku Seminar</div>
@@ -307,97 +360,100 @@ body::before {
     <div class="subtitle">志学ゼミナール｜オンライン学習教材</div>
   </div>
 
-  <!-- 学習解説動画 -->
-  <div class="section">
-    <div class="section-label">Online learning — 解説動画</div>
-    <a class="card available" href="https://shigaku-mystudy.com" target="_blank">
-      <div class="card-icon">🎞️</div>
-      <div class="card-body">
-        <div class="card-title">学習解説動画</div>
-        <div class="card-title-en">Shigaku Online Learning</div>
-        <div class="card-desc">英･数･社･理･国｜解説動画で学ぼう</div>
-      </div>
-      <span class="card-badge badge-ready">● Ready</span>
-      <div class="card-arrow">›</div>
-    </a>
-  </div>
-
-  <!-- 英単語 -->
-  <div class="section">
-    <div class="section-label">English — 英語</div>
-    <a class="card available" href="https://shigakusakura-pixel.github.io/tango/">
-      <div class="card-icon">🌐</div>
-      <div class="card-body">
-        <div class="card-title">中学英語 英単語</div>
-        <div class="card-title-en">Junior High — English Vocabulary</div>
-        <div class="card-desc">New Horizon 英単語チャレンジ</div>
-      </div>
-      <span class="card-badge badge-ready">● Ready</span>
-      <div class="card-arrow">›</div>
-    </a>
-  </div>
-
-  <!-- 数学 -->
-  <div class="section">
-    <div class="section-label">Mathematics — 数学</div>
-    <div class="card coming-soon">
-      <div class="card-icon">📐</div>
-      <div class="card-body">
-        <div class="card-title">中学数学 一問一答</div>
-        <div class="card-title-en">Junior High — Mathematics</div>
-        <div class="card-desc">計算・図形・関数・データ｜準備中</div>
-      </div>
-      <span class="card-badge badge-soon">Coming Soon</span>
+  <div class="message-box">
+    <div class="message-title">先生からのお知らせ</div>
+    <div class="message-content">
+      ここに生徒の皆さんへのメッセージや、今月の目標、模試のお知らせなどを自由に記載できます。<br>
+      日々の学習のモチベーションアップにぜひご活用ください！
     </div>
   </div>
 
-  <!-- 社会 -->
-  <div class="section">
-    <div class="section-label">Social Studies — 社会</div>
-    <a class="card available" href="https://shigakusakura-pixel.github.io/syakai/">
-      <div class="card-icon">📚</div>
-      <div class="card-body">
-        <div class="card-title">中学社会 一問一答</div>
-        <div class="card-title-en">Junior High — Social Studies</div>
-        <div class="card-desc">地理・歴史・公民｜穴埋めチャレンジ 全480問<br>要点チェック 全8単元</div>
-      </div>
-      <span class="card-badge badge-ready">● Ready</span>
-      <div class="card-arrow">›</div>
-    </a>
-  </div>
+  <div class="card-grid">
 
-  <!-- 理科 -->
-  <div class="section">
-    <div class="section-label">Science — 理科</div>
-    <a class="card available" href="https://shigakusakura-pixel.github.io/rika/">
-      <div class="card-icon">🔬</div>
-      <div class="card-body">
-        <div class="card-title">中学理科 一問一答</div>
-        <div class="card-title-en">Junior High — Science</div>
-        <div class="card-desc">物理・化学・生物・地学｜穴埋めチャレンジ 全495問<br>要点チェック 全12単元</div>
-      </div>
-      <span class="card-badge badge-ready">● Ready</span>
-      <div class="card-arrow">›</div>
-    </a>
-  </div>
+    <div class="section">
+      <div class="section-label">Online learning — 解説動画</div>
+      <a class="card available" href="https://shigaku-mystudy.com" target="_blank">
+        <div class="card-icon">🎞️</div>
+        <div class="card-body">
+          <div class="card-title">学習解説動画</div>
+          <div class="card-title-en">Shigaku Online Learning</div>
+          <div class="card-desc">英･数･社･理･国｜解説動画で学ぼう</div>
+        </div>
+        <span class="card-badge badge-ready">● Ready</span>
+        <div class="card-arrow">›</div>
+      </a>
+    </div>
 
-  <!-- 国語 -->
-  <div class="section">
-    <div class="section-label">Japanese — 国語</div>
-     <a class="card available" href="https://shigakusakura-pixel.github.io/kokugo/">
-       <div class="card-icon">📖</div>
-      <div class="card-body">
-        <div class="card-title">中学国語 一問一答</div>
-        <div class="card-title-en">Junior High — Japanese Language</div>
-        <div class="card-desc">国文法・古典・漢文<br>全28単元</div>
+    <div class="section">
+      <div class="section-label">English — 英語</div>
+      <a class="card available" href="https://shigakusakura-pixel.github.io/tango/">
+        <div class="card-icon">🌐</div>
+        <div class="card-body">
+          <div class="card-title">中学英語 英単語</div>
+          <div class="card-title-en">Junior High — English Vocab</div>
+          <div class="card-desc">New Horizon 英単語チャレンジ</div>
+        </div>
+        <span class="card-badge badge-ready">● Ready</span>
+        <div class="card-arrow">›</div>
+      </a>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Mathematics — 数学</div>
+      <div class="card coming-soon">
+        <div class="card-icon">📐</div>
+        <div class="card-body">
+          <div class="card-title">中学数学 一問一答</div>
+          <div class="card-title-en">Junior High — Mathematics</div>
+          <div class="card-desc">計算・図形・関数・データ｜準備中</div>
+        </div>
+        <span class="card-badge badge-soon">Coming Soon</span>
       </div>
-     <span class="card-badge badge-ready">● Ready</span>
-     <div class="card-arrow">›</div>
-    </a>
-  </div>
-  
-  <!-- フッター -->
-  <div class="footer">
+    </div>
+
+    <div class="section">
+      <div class="section-label">Social Studies — 社会</div>
+      <a class="card available" href="https://shigakusakura-pixel.github.io/syakai/">
+        <div class="card-icon">📚</div>
+        <div class="card-body">
+          <div class="card-title">中学社会 一問一答</div>
+          <div class="card-title-en">Junior High — Social Studies</div>
+          <div class="card-desc">地理・歴史・公民｜穴埋めチャレンジ等</div>
+        </div>
+        <span class="card-badge badge-ready">● Ready</span>
+        <div class="card-arrow">›</div>
+      </a>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Science — 理科</div>
+      <a class="card available" href="https://shigakusakura-pixel.github.io/rika/">
+        <div class="card-icon">🔬</div>
+        <div class="card-body">
+          <div class="card-title">中学理科 一問一答</div>
+          <div class="card-title-en">Junior High — Science</div>
+          <div class="card-desc">物理・化学・生物・地学｜穴埋めチャレンジ等</div>
+        </div>
+        <span class="card-badge badge-ready">● Ready</span>
+        <div class="card-arrow">›</div>
+      </a>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Japanese — 国語</div>
+       <a class="card available" href="https://shigakusakura-pixel.github.io/kokugo/">
+        <div class="card-icon">📖</div>
+        <div class="card-body">
+          <div class="card-title">中学国語 一問一答</div>
+          <div class="card-title-en">Junior High — Japanese</div>
+          <div class="card-desc">国文法・古典・漢文</div>
+        </div>
+       <span class="card-badge badge-ready">● Ready</span>
+       <div class="card-arrow">›</div>
+      </a>
+    </div>
+
+  </div> <div class="footer">
     <p>© <span class="gold">Shigaku Seminar</span> — All Rights Reserved</p>
     <p style="margin-top:4px;">志学ゼミナール｜My Study Room</p>
   </div>
