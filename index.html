@@ -583,7 +583,7 @@ body::before {
         document.getElementById('login-section').style.display = 'none';
         document.getElementById('portal-section').style.display = 'block';
 
-        // --- 1. 個別メッセージの取得 ---
+        // 1. 個別メッセージの取得
         const messagesRef = collection(db, "teacher_messages");
         const qMsg = query(messagesRef, where("studentId", "==", loggedInStudent));
         
@@ -596,7 +596,7 @@ body::before {
           }
         }).catch((error) => console.error("メッセージ取得エラー:", error));
 
-        // --- 2. 🌟グラフ用データ（今月のアクセス数）の取得と描画 ---
+        // 2. グラフ用データ（今月のアクセス数）の取得と描画
         drawMonthlyChart(loggedInStudent);
 
       })
@@ -614,12 +614,10 @@ body::before {
     try {
       const querySnapshot = await getDocs(qLog);
       
-      // 今月の年と月を取得
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
 
-      // 教科ごとに回数を数えるための「箱」を準備
       const counts = {
         "学習解説動画": 0,
         "中学英語 英単語/英文法": 0,
@@ -629,11 +627,10 @@ body::before {
         "中学国語 一問一答": 0
       };
 
-      // データベースの記録を一つずつ確認して、今月なら回数を＋1する
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         if (data.accessedAt) {
-          const accessedDate = data.accessedAt.toDate(); // 記録された時間をJSの形式に変換
+          const accessedDate = data.accessedAt.toDate();
           if (accessedDate.getMonth() === currentMonth && accessedDate.getFullYear() === currentYear) {
             if (counts[data.subject] !== undefined) {
               counts[data.subject]++;
@@ -642,16 +639,14 @@ body::before {
         }
       });
 
-      // グラフ枠を表示
       document.getElementById('chart-container').style.display = 'block';
 
-      // グラフを描画
       const ctx = document.getElementById('myChart').getContext('2d');
       new Chart(ctx, {
-        type: 'bar', // 棒グラフ
+        type: 'bar',
         data: {
-          labels: ['動画', '英語', '数学', '社会', '理科', '国語'], // グラフの下に表示する短い名前
-datasets: [{
+          labels: ['動画', '英語', '数学', '社会', '理科', '国語'],
+          datasets: [{
             label: 'アクセス回数',
             data: [
               counts["学習解説動画"],
@@ -662,12 +657,12 @@ datasets: [{
               counts["中学国語 一問一答"]
             ],
             backgroundColor: [
-              'rgba(54, 162, 235, 0.8)',  // 明るいブルー (動画)
-              'rgba(75, 192, 192, 0.8)',  // 明るいミントグリーン (英語)
-              'rgba(255, 206, 86, 0.8)',  // 明るいイエロー (数学)
-              'rgba(255, 99, 132, 0.8)',  // 明るいピンク (社会)
-              'rgba(153, 102, 255, 0.8)', // 明るいパープル (理科)
-              'rgba(255, 159, 64, 0.8)'   // 明るいオレンジ (国語)
+              'rgba(54, 162, 235, 0.8)',
+              'rgba(75, 192, 192, 0.8)',
+              'rgba(255, 206, 86, 0.8)',
+              'rgba(255, 99, 132, 0.8)',
+              'rgba(153, 102, 255, 0.8)',
+              'rgba(255, 159, 64, 0.8)'
             ],
             borderColor: [
               'rgba(54, 162, 235, 1)',
@@ -677,15 +672,15 @@ datasets: [{
               'rgba(153, 102, 255, 1)',
               'rgba(255, 159, 64, 1)'
             ],
-            borderWidth: 2, // 枠線を少し太くしてくっきりさせます
-            borderRadius: 4 // 棒グラフの上の角を少し丸くしておしゃれにします
+            borderWidth: 2,
+            borderRadius: 4
           }]
         },
         options: {
           scales: {
             y: {
               beginAtZero: true,
-              ticks: { stepSize: 1 } // 回数なので「1.5回」などにならないように整数刻みにする
+              ticks: { stepSize: 1 }
             }
           }
         }
@@ -696,7 +691,7 @@ datasets: [{
     }
   }
 
-  // 各教科のカードをクリックしたときの「アクセス記録」処理
+  // 🌟 ここが変更箇所です：URLに「名札」をくっつけてからジャンプします 🌟
   const cards = document.querySelectorAll('.card.available');
   cards.forEach(card => {
     card.addEventListener('click', async (e) => {
@@ -706,6 +701,7 @@ datasets: [{
 
       if (loggedInStudent) {
         try {
+          // まずポータルサイト側のアクセス記録をつける
           await addDoc(collection(db, "access_logs"), {
             studentId: loggedInStudent,
             subject: subjectTitle,
@@ -716,10 +712,16 @@ datasets: [{
         }
       }
       
+      // ジャンプ先のURLの末尾に「?student=生徒のID」をくっつける
+      let finalUrl = targetUrl;
+      if (loggedInStudent) {
+        finalUrl = targetUrl + "?student=" + encodeURIComponent(loggedInStudent);
+      }
+
       if(card.getAttribute('target') === '_blank') {
-        window.open(targetUrl, '_blank');
+        window.open(finalUrl, '_blank');
       } else {
-        window.location.href = targetUrl;
+        window.location.href = finalUrl;
       }
     });
   });
