@@ -174,7 +174,7 @@ body::before {
   font-weight: bold;
 }
 
-/* メッセージ枠 */
+/* メッセージ枠・グラフ枠 共通 */
 .message-box {
   background: var(--white);
   border-left: 5px solid var(--gold-light);
@@ -197,6 +197,11 @@ body::before {
 /* 個別メッセージ用の特別なアイコン指定（上書き） */
 #teacher-message-box::before {
   content: '✉️';
+}
+
+/* グラフ枠からはアイコンを消す */
+#chart-container::before {
+  content: none;
 }
 
 .message-header {
@@ -405,6 +410,8 @@ body::before {
   to   { opacity: 1; transform: translateY(0); }
 }
 </style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <div class="container">
@@ -433,6 +440,11 @@ body::before {
         </div>
         <div class="message-content" id="teacher-message-text" style="color: #2a4570; font-size: 1rem;">
           </div>
+      </div>
+
+      <div id="chart-container" class="message-box" style="display: none; padding-top: 25px;">
+        <h3 style="text-align: center; color: var(--navy); margin-top: 0; margin-bottom: 15px; font-size: 1.1rem; font-weight: 700;">📊 今月の学習記録</h3>
+        <canvas id="myChart"></canvas>
       </div>
 
       <div class="message-box">
@@ -571,20 +583,21 @@ body::before {
         document.getElementById('login-section').style.display = 'none';
         document.getElementById('portal-section').style.display = 'block';
 
-        // ログインした生徒宛てのメッセージを探す
+        // --- 1. 個別メッセージの取得 ---
         const messagesRef = collection(db, "teacher_messages");
-        const q = query(messagesRef, where("studentId", "==", loggedInStudent));
+        const qMsg = query(messagesRef, where("studentId", "==", loggedInStudent));
         
-        getDocs(q).then((querySnapshot) => {
+        getDocs(qMsg).then((querySnapshot) => {
           if (!querySnapshot.empty) {
             querySnapshot.forEach((doc) => {
               document.getElementById('teacher-message-text').innerText = doc.data().message;
               document.getElementById('teacher-message-box').style.display = 'block';
             });
           }
-        }).catch((error) => {
-          console.error("メッセージ取得エラー:", error);
-        });
+        }).catch((error) => console.error("メッセージ取得エラー:", error));
+
+        // --- 2. 🌟グラフ用データ（今月のアクセス数）の取得と描画 ---
+        drawMonthlyChart(loggedInStudent);
 
       })
       .catch((error) => {
@@ -593,6 +606,88 @@ body::before {
       });
   });
 
+  // グラフを描画する関数
+  async function drawMonthlyChart(studentId) {
+    const logsRef = collection(db, "access_logs");
+    const qLog = query(logsRef, where("studentId", "==", studentId));
+    
+    try {
+      const querySnapshot = await getDocs(qLog);
+      
+      // 今月の年と月を取得
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      // 教科ごとに回数を数えるための「箱」を準備
+      const counts = {
+        "学習解説動画": 0,
+        "中学英語 英単語/英文法": 0,
+        "中学数学 一問一答": 0,
+        "中学社会 一問一答": 0,
+        "中学理科 一問一答": 0,
+        "中学国語 一問一答": 0
+      };
+
+      // データベースの記録を一つずつ確認して、今月なら回数を＋1する
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.accessedAt) {
+          const accessedDate = data.accessedAt.toDate(); // 記録された時間をJSの形式に変換
+          if (accessedDate.getMonth() === currentMonth && accessedDate.getFullYear() === currentYear) {
+            if (counts[data.subject] !== undefined) {
+              counts[data.subject]++;
+            }
+          }
+        }
+      });
+
+      // グラフ枠を表示
+      document.getElementById('chart-container').style.display = 'block';
+
+      // グラフを描画
+      const ctx = document.getElementById('myChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'bar', // 棒グラフ
+        data: {
+          labels: ['動画', '英語', '数学', '社会', '理科', '国語'], // グラフの下に表示する短い名前
+          datasets: [{
+            label: 'アクセス回数',
+            data: [
+              counts["学習解説動画"],
+              counts["中学英語 英単語/英文法"],
+              counts["中学数学 一問一答"],
+              counts["中学社会 一問一答"],
+              counts["中学理科 一問一答"],
+              counts["中学国語 一問一答"]
+            ],
+            backgroundColor: [
+              'rgba(26, 46, 74, 0.7)',   // navy (動画)
+              'rgba(42, 157, 143, 0.7)', // green (英語)
+              'rgba(184, 148, 46, 0.7)', // gold (数学)
+              'rgba(106, 122, 144, 0.7)',// sub (社会)
+              'rgba(42, 69, 112, 0.7)',  // navy-light (理科)
+              'rgba(212, 173, 62, 0.7)'  // gold-light (国語)
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { stepSize: 1 } // 回数なので「1.5回」などにならないように整数刻みにする
+            }
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error("グラフデータ取得エラー:", error);
+    }
+  }
+
+  // 各教科のカードをクリックしたときの「アクセス記録」処理
   const cards = document.querySelectorAll('.card.available');
   cards.forEach(card => {
     card.addEventListener('click', async (e) => {
