@@ -125,9 +125,7 @@ body::before {
   margin-top: 16px;
 }
 
-/* =========================================
-   追加箇所①：ログイン画面用のデザイン（CSS）
-   ========================================= */
+/* ログイン画面用のデザイン */
 #login-section {
   background: var(--white);
   border: 1px solid var(--border);
@@ -172,7 +170,7 @@ body::before {
   color: #e74c3c;
   font-size: 0.85rem;
   margin-top: 15px;
-  display: none; /* 最初は隠しておく */
+  display: none;
   font-weight: bold;
 }
 
@@ -194,6 +192,11 @@ body::before {
   position: absolute;
   top: 18px;
   left: 16px;
+}
+
+/* 個別メッセージ用の特別なアイコン指定（上書き） */
+#teacher-message-box::before {
+  content: '✉️';
 }
 
 .message-header {
@@ -369,11 +372,6 @@ body::before {
   color: #2a9d5c;
   border: 1px solid #c4ebd0;
 }
-.badge-soon {
-  background: var(--gold-bg);
-  color: var(--gold);
-  border: 1px solid rgba(180,148,46,0.25);
-}
 
 .card-arrow {
   color: var(--gold);
@@ -381,11 +379,6 @@ body::before {
   transition: transform 0.2s;
   opacity: 0.6;
   font-weight: 700;
-}
-
-.card.coming-soon {
-  opacity: 0.5;
-  cursor: default;
 }
 
 /* フッター */
@@ -433,7 +426,6 @@ body::before {
   </div>
 
   <div id="portal-section" style="display: none;">
-　　　<div id="portal-section" style="display: none;">
 
       <div id="teacher-message-box" class="message-box" style="display: none; border-left-color: var(--accent-green);">
         <div class="message-header">
@@ -441,8 +433,8 @@ body::before {
         </div>
         <div class="message-content" id="teacher-message-text" style="color: #2a4570; font-size: 1rem;">
           </div>
-       <div class="message-box">
-        <div class="message-header">
+      </div>
+
       <div class="message-box">
         <div class="message-header">
           <div class="message-title">Notice from Shigaku</div>
@@ -456,7 +448,6 @@ body::before {
       </div>
 
       <div class="card-grid">
-
         <div class="section">
           <div class="section-label">Online learning — 解説動画</div>
           <a class="card available" href="https://shigaku-mystudy.com" target="_blank">
@@ -540,20 +531,18 @@ body::before {
            <div class="card-arrow">›</div>
           </a>
         </div>
-
       </div> </div> <div class="footer">
     <p>© <span class="gold">Shigaku Seminar</span> — All Rights Reserved</p>
     <p style="margin-top:4px;">志学ゼミナール｜My Study Room</p>
   </div>
 
 </div>
+
 <script type="module">
-  // 1. 必要な機能を読み込みます（メッセージを「検索」して「取得」する機能を追加しました）
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
   import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
   import { getFirestore, collection, addDoc, serverTimestamp, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 
-  // ご自身のFirebase設定情報
   const firebaseConfig = {
     apiKey: "AIzaSyBQjnlOfeVvWQJHDxGE9cq-jGsYF3uo0PY",
     authDomain: "mystudy-portal.firebaseapp.com",
@@ -569,7 +558,6 @@ body::before {
 
   let loggedInStudent = "";
 
-  // 2. ログイン処理と「メッセージの取得」
   document.getElementById('login-btn').addEventListener('click', () => {
     const email = document.getElementById('student-id').value;
     const password = document.getElementById('student-password').value;
@@ -583,13 +571,12 @@ body::before {
         document.getElementById('login-section').style.display = 'none';
         document.getElementById('portal-section').style.display = 'block';
 
-        // 🌟 新規追加：ログインした生徒宛てのメッセージを探す 🌟
+        // ログインした生徒宛てのメッセージを探す
         const messagesRef = collection(db, "teacher_messages");
         const q = query(messagesRef, where("studentId", "==", loggedInStudent));
         
         getDocs(q).then((querySnapshot) => {
           if (!querySnapshot.empty) {
-            // メッセージが見つかった場合、文字をセットして枠を表示する
             querySnapshot.forEach((doc) => {
               document.getElementById('teacher-message-text').innerText = doc.data().message;
               document.getElementById('teacher-message-box').style.display = 'block';
@@ -606,7 +593,6 @@ body::before {
       });
   });
 
-  // 3. 各教科のカードをクリックしたときの「アクセス記録」
   const cards = document.querySelectorAll('.card.available');
   cards.forEach(card => {
     card.addEventListener('click', async (e) => {
@@ -634,6 +620,5 @@ body::before {
     });
   });
 </script>
-
 </body>
 </html>
