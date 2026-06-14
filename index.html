@@ -433,7 +433,17 @@ body::before {
   </div>
 
   <div id="portal-section" style="display: none;">
+　　　<div id="portal-section" style="display: none;">
 
+      <div id="teacher-message-box" class="message-box" style="display: none; border-left-color: var(--accent-green);">
+        <div class="message-header">
+          <div class="message-title" style="color: var(--accent-green);">Message from Teacher</div>
+        </div>
+        <div class="message-content" id="teacher-message-text" style="color: #2a4570; font-size: 1rem;">
+          </div>
+      </div>
+      <div class="message-box">
+        <div class="message-header">
       <div class="message-box">
         <div class="message-header">
           <div class="message-title">Notice from Shigaku</div>
@@ -538,12 +548,11 @@ body::before {
   </div>
 
 </div>
-
 <script type="module">
-  // 1. 必要な機能を読み込みます（データベースに書き込むための機能を追加しています）
+  // 1. 必要な機能を読み込みます（メッセージを「検索」して「取得」する機能を追加しました）
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
   import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
-  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, serverTimestamp, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 
   // ご自身のFirebase設定情報
   const firebaseConfig = {
@@ -555,28 +564,42 @@ body::before {
     appId: "1:62253255474:web:817a3cbd1ab3ea63e7e52b"
   };
 
-  // Firebaseの初期化と準備
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  const db = getFirestore(app); // データベースを使う準備
+  const db = getFirestore(app);
 
-  let loggedInStudent = ""; // ログインした生徒のIDを覚えておく箱
+  let loggedInStudent = "";
 
-  // 2. ログインボタンを押したときの動き
+  // 2. ログイン処理と「メッセージの取得」
   document.getElementById('login-btn').addEventListener('click', () => {
     const email = document.getElementById('student-id').value;
     const password = document.getElementById('student-password').value;
     const errorMsg = document.getElementById('login-error');
 
-    // ログイン処理を開始
     signInWithEmailAndPassword(auth, email, password)
       .then((userCredential) => {
-        // ログイン成功！
-        loggedInStudent = userCredential.user.email; // 誰がログインしたかを記憶
+        loggedInStudent = userCredential.user.email;
         
         errorMsg.style.display = 'none';
         document.getElementById('login-section').style.display = 'none';
         document.getElementById('portal-section').style.display = 'block';
+
+        // 🌟 新規追加：ログインした生徒宛てのメッセージを探す 🌟
+        const messagesRef = collection(db, "teacher_messages");
+        const q = query(messagesRef, where("studentId", "==", loggedInStudent));
+        
+        getDocs(q).then((querySnapshot) => {
+          if (!querySnapshot.empty) {
+            // メッセージが見つかった場合、文字をセットして枠を表示する
+            querySnapshot.forEach((doc) => {
+              document.getElementById('teacher-message-text').innerText = doc.data().message;
+              document.getElementById('teacher-message-box').style.display = 'block';
+            });
+          }
+        }).catch((error) => {
+          console.error("メッセージ取得エラー:", error);
+        });
+
       })
       .catch((error) => {
         errorMsg.style.display = 'block';
@@ -584,36 +607,34 @@ body::before {
       });
   });
 
-  // 3. 各教科のカードをクリックしたときの「アクセス記録」の動き
+  // 3. 各教科のカードをクリックしたときの「アクセス記録」
   const cards = document.querySelectorAll('.card.available');
   cards.forEach(card => {
     card.addEventListener('click', async (e) => {
-      e.preventDefault(); // クリックした瞬間にページが移動してしまうのを一旦ストップ
+      e.preventDefault();
+      const targetUrl = card.getAttribute('href');
+      const subjectTitle = card.querySelector('.card-title').innerText;
 
-      const targetUrl = card.getAttribute('href'); // 移動先のURLを取得
-      const subjectTitle = card.querySelector('.card-title').innerText; // 教科名（例: 中学英語 英単語/英文法）を取得
-
-      // データベースに記録を送信！
       if (loggedInStudent) {
         try {
           await addDoc(collection(db, "access_logs"), {
-            studentId: loggedInStudent,     // 誰が
-            subject: subjectTitle,          // どの教科を
-            accessedAt: serverTimestamp()   // いつ（サーバーの正確な時間）
+            studentId: loggedInStudent,
+            subject: subjectTitle,
+            accessedAt: serverTimestamp()
           });
         } catch (error) {
           console.error("記録エラー:", error); 
         }
       }
       
-      // 記録が終わったら、実際のページへジャンプ！
       if(card.getAttribute('target') === '_blank') {
-        window.open(targetUrl, '_blank'); // 別タブで開く設定のものは別タブへ
+        window.open(targetUrl, '_blank');
       } else {
-        window.location.href = targetUrl; // 通常の画面移動
+        window.location.href = targetUrl;
       }
     });
   });
 </script>
+
 </body>
 </html>
