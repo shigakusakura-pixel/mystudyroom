@@ -540,11 +540,12 @@ body::before {
 </div>
 
 <script type="module">
-  // Firebaseの基本機能と「認証機能」を読み込みます
+  // 1. 必要な機能を読み込みます（データベースに書き込むための機能を追加しています）
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
   import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 
-  // 先ほどいただいた、ご自身のFirebase設定情報です
+  // ご自身のFirebase設定情報
   const firebaseConfig = {
     apiKey: "AIzaSyBQjnlOfeVvWQJHDxGE9cq-jGsYF3uo0PY",
     authDomain: "mystudy-portal.firebaseapp.com",
@@ -554,11 +555,14 @@ body::before {
     appId: "1:62253255474:web:817a3cbd1ab3ea63e7e52b"
   };
 
-  // Firebaseと認証を初期化
+  // Firebaseの初期化と準備
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
+  const db = getFirestore(app); // データベースを使う準備
 
-  // ログインボタンを押したときの動き
+  let loggedInStudent = ""; // ログインした生徒のIDを覚えておく箱
+
+  // 2. ログインボタンを押したときの動き
   document.getElementById('login-btn').addEventListener('click', () => {
     const email = document.getElementById('student-id').value;
     const password = document.getElementById('student-password').value;
@@ -567,21 +571,48 @@ body::before {
     // ログイン処理を開始
     signInWithEmailAndPassword(auth, email, password)
       .then((userCredential) => {
-        // ログイン大成功！
-        const user = userCredential.user;
+        // ログイン成功！
+        loggedInStudent = userCredential.user.email; // 誰がログインしたかを記憶
         
-        // エラーメッセージを消す
         errorMsg.style.display = 'none';
-        
-        // ログイン画面を隠して、ポータル画面を表示させる！
         document.getElementById('login-section').style.display = 'none';
         document.getElementById('portal-section').style.display = 'block';
       })
       .catch((error) => {
-        // ログイン失敗（パスワード間違いなど）
         errorMsg.style.display = 'block';
         console.error("ログインエラー:", error.message);
       });
+  });
+
+  // 3. 各教科のカードをクリックしたときの「アクセス記録」の動き
+  const cards = document.querySelectorAll('.card.available');
+  cards.forEach(card => {
+    card.addEventListener('click', async (e) => {
+      e.preventDefault(); // クリックした瞬間にページが移動してしまうのを一旦ストップ
+
+      const targetUrl = card.getAttribute('href'); // 移動先のURLを取得
+      const subjectTitle = card.querySelector('.card-title').innerText; // 教科名（例: 中学英語 英単語/英文法）を取得
+
+      // データベースに記録を送信！
+      if (loggedInStudent) {
+        try {
+          await addDoc(collection(db, "access_logs"), {
+            studentId: loggedInStudent,     // 誰が
+            subject: subjectTitle,          // どの教科を
+            accessedAt: serverTimestamp()   // いつ（サーバーの正確な時間）
+          });
+        } catch (error) {
+          console.error("記録エラー:", error); 
+        }
+      }
+      
+      // 記録が終わったら、実際のページへジャンプ！
+      if(card.getAttribute('target') === '_blank') {
+        window.open(targetUrl, '_blank'); // 別タブで開く設定のものは別タブへ
+      } else {
+        window.location.href = targetUrl; // 通常の画面移動
+      }
+    });
   });
 </script>
 </body>
