@@ -99,7 +99,7 @@
 
     <div class="message-box">
       <h4 style="margin: 0 0 10px 0; font-size: 1em; color: #1a2e4a;">💬 この生徒にメッセージを送る</h4>
-      <textarea id="teacher-msg-input" rows="2" placeholder="例：今週は社会をよく頑張っているね！土曜特訓もこの調子で！"></textarea>
+      <textarea id="teacher-msg-input" rows="2" placeholder="例：今週はよく頑張っているね！土曜特訓もこの調子で！"></textarea>
       <button id="send-msg-btn" class="send-btn">送信する</button>
       <span id="msg-send-status" style="margin-left: 10px; font-size: 0.85em; color: #e74c3c;"></span>
     </div>
@@ -122,26 +122,27 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
-/ ★名簿設定
+
+  // ★先生が新しく作成した名簿をセットしました！
   const STUDENT_RECORDS = {
-    "student001@shigaku.local": "後田　莉乃葉",
-    "teacher@shigaku.local": "日野　妙三",
-     "sky@shigaku.local": "Sky",
+    "student001@shigaku.local": "後田 莉乃葉",
+    "teacher@shigaku.local": "日野 妙三",
+    "sky@shigaku.local": "Sky",
     "guest": "ゲストユーザー",
-　　"student002@shigaku.local": "辻 結香",
-   "student003@shigaku.local": "辻 沙香",
-   "student004@shigaku.local": "二ノ宮 愛彩",
-   "student005@shigaku.local": "丸目 妃織",
- "student006@shigaku.local": "久保 善光",
- "student007@shigaku.local": "新留 らな",
- "student008@shigaku.local": "溝口 ゆうか",
- "student009@shigaku.local": "川原 美桜",
- "student010@shigaku.local": "藤中 敬斗",
- "student011@shigaku.local": "吉元 碧唯"
+    "student002@shigaku.local": "辻 結香",
+    "student003@shigaku.local": "辻 沙香",
+    "student004@shigaku.local": "二ノ宮 愛彩",
+    "student005@shigaku.local": "丸目 妃織",
+    "student006@shigaku.local": "久保 善光",
+    "student007@shigaku.local": "新留 らな",
+    "student008@shigaku.local": "溝口 ゆうか",
+    "student009@shigaku.local": "川原 美桜",
+    "student010@shigaku.local": "藤中 敬斗",
+    "student011@shigaku.local": "吉元 碧唯"
   };
   const REGISTERED_STUDENTS = Object.keys(STUDENT_RECORDS);
 
-  let currentModalStudentId = ""; // ★現在開いている生徒IDを記憶する変数
+  let currentModalStudentId = ""; 
 
   async function loadAndAggregateData() {
     try {
@@ -162,11 +163,21 @@
         const sId = data.studentId;
         if (!studentMap[sId]) studentMap[sId] = { id: sId, count7: 0, count30: 0, lastActive: null, subjects: {} };
 
-        const timestamp = data.timestamp ? data.timestamp.toDate() : null;
-        if (timestamp) {
+        // ★安全装置：古い「文字データ」が来てもパニックにならないようにする
+        let timestampObj = null;
+        if (data.timestamp) {
+            if (typeof data.timestamp.toDate === 'function') {
+                timestampObj = data.timestamp.toDate(); 
+            } else {
+                timestampObj = new Date(data.timestamp); 
+                if (isNaN(timestampObj.getTime())) timestampObj = null; 
+            }
+        }
+
+        if (timestampObj) {
           studentMap[sId].count30++;
-          if (timestamp >= sevenDaysAgo) studentMap[sId].count7++;
-          if (!studentMap[sId].lastActive || timestamp > studentMap[sId].lastActive) studentMap[sId].lastActive = timestamp;
+          if (timestampObj >= sevenDaysAgo) studentMap[sId].count7++;
+          if (!studentMap[sId].lastActive || timestampObj > studentMap[sId].lastActive) studentMap[sId].lastActive = timestampObj;
           
           const subjectName = data.subject || 'その他/不明';
           if (!studentMap[sId].subjects[subjectName]) studentMap[sId].subjects[subjectName] = 0;
@@ -187,6 +198,7 @@
       document.getElementById('student-table').style.display = 'table';
     } catch (e) {
       console.error("エラー:", e);
+      document.getElementById('loading-view').textContent = "❌ 読み込みエラーが発生しました。詳細: " + e.message;
     }
   }
 
@@ -217,15 +229,13 @@
   window.onclick = (event) => { if (event.target == modal) modal.style.display = "none"; }
 
   async function openStudentModal(student, studentName) {
-    currentModalStudentId = student.id; // ★開いた生徒のIDを記憶
+    currentModalStudentId = student.id; 
     
-    // 画面セット
     document.getElementById('modal-name').textContent = studentName;
     document.getElementById('modal-id').textContent = student.id;
     document.getElementById('modal-count7').textContent = student.count7;
     document.getElementById('modal-count30').textContent = student.count30;
     
-    // メッセージ入力欄をリセット
     document.getElementById('teacher-msg-input').value = "";
     document.getElementById('msg-send-status').textContent = "";
 
@@ -267,8 +277,14 @@
       }
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        const dateObj = data.timestamp ? data.timestamp.toDate() : null;
-        const dateStr = dateObj ? dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '不明';
+        
+        let dateObj = null;
+        if (data.timestamp) {
+            if (typeof data.timestamp.toDate === 'function') dateObj = data.timestamp.toDate();
+            else dateObj = new Date(data.timestamp);
+        }
+
+        const dateStr = (dateObj && !isNaN(dateObj.getTime())) ? dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '不明';
         const subject = data.subject || '教科不明';
         const unit = data.unit || '';
         historyList.innerHTML += `<li><span style="color:#666; font-size:0.9em; margin-right:10px;">${dateStr}</span> <strong>${subject}</strong> <br><span style="font-size:0.9em; color:#444;">${unit}</span></li>`;
@@ -276,9 +292,7 @@
     } catch (e) {}
   }
 
-  // ==========================================
-  // ★追加：メッセージ送信ボタンの処理
-  // ==========================================
+  // ★メッセージ送信処理
   document.getElementById('send-msg-btn').addEventListener('click', async () => {
     const msgInput = document.getElementById('teacher-msg-input');
     const statusText = document.getElementById('msg-send-status');
@@ -301,7 +315,7 @@
       });
       statusText.style.color = "#27ae60";
       statusText.textContent = "✅ 送信しました！";
-      msgInput.value = ""; // 送信後に枠を空にする
+      msgInput.value = ""; 
     } catch (e) {
       console.error(e);
       statusText.style.color = "#e74c3c";
