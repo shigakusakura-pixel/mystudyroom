@@ -16,10 +16,8 @@
   th.sortable { cursor: pointer; position: relative; }
   th.sortable:hover { background-color: #2a4570; }
   
-  /* 行をクリックできるようにカーソルを変更 */
   tr.student-row { cursor: pointer; transition: background-color 0.2s; }
   tr.student-row:hover { background-color: #eef2f7; }
-  
   tr.zero-activity { background-color: #fff0f0; color: #c0392b; font-weight: bold; }
   tr.zero-activity:hover { background-color: #ffe4e4; }
   
@@ -30,14 +28,21 @@
 
   /* ポップアップ（モーダル）のスタイル */
   .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
-  .modal-content { background: white; width: 90%; max-width: 500px; padding: 24px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); position: relative; }
+  .modal-content { background: white; width: 90%; max-width: 500px; padding: 24px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); position: relative; max-height: 90vh; overflow-y: auto; }
   .modal-close { position: absolute; top: 15px; right: 20px; font-size: 1.5em; cursor: pointer; color: #888; }
   .modal-close:hover { color: #333; }
   .modal-header { border-bottom: 2px solid #1a2e4a; padding-bottom: 10px; margin-bottom: 15px; }
   .modal-stat-box { display: flex; justify-content: space-between; background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
   .stat-item { text-align: center; width: 48%; }
   .stat-num { font-size: 1.8em; font-weight: bold; color: #1a2e4a; }
-  .recent-logs { font-size: 0.9em; max-height: 200px; overflow-y: auto; }
+  
+  /* 教科別バーのスタイル */
+  .subject-bar-container { margin-bottom: 10px; }
+  .subject-name { font-size: 0.85em; color: #444; margin-bottom: 4px; display: flex; justify-content: space-between; font-weight: bold; }
+  .bar-bg { width: 100%; background-color: #e2e6ee; border-radius: 6px; height: 12px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 6px; transition: width 0.5s ease-out; }
+
+  .recent-logs { font-size: 0.9em; max-height: 150px; overflow-y: auto; background: #fdfdfd; border: 1px solid #eee; padding: 10px; border-radius: 6px; }
   .recent-logs li { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed #ccc; list-style: none; }
   .recent-logs ul { padding-left: 0; margin: 0; }
 </style>
@@ -83,6 +88,10 @@
       </div>
     </div>
     
+    <h4 style="margin: 15px 0 10px 0; font-size: 1em; color: #333;">📊 教科別バランス（過去30日間）</h4>
+    <div id="modal-subjects-container" style="margin-bottom: 20px;">
+      </div>
+
     <h4 style="margin: 10px 0 5px 0; font-size: 1em; color: #333;">📝 最近の学習履歴（最新5件）</h4>
     <div id="modal-history-loading" style="font-size: 0.8em; color: #888;">履歴を読み込み中...</div>
     <div class="recent-logs">
@@ -107,11 +116,11 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  // ★名簿設定
+ // ★名簿設定
   const STUDENT_RECORDS = {
     "student001@shigaku.local": "後田　莉乃葉",
     "teacher@shigaku.local": "日野　妙三",
-     "sky@shigaku.local": "sky",
+     "sky@shigaku.local": "Sky",
     "guest": "ゲストユーザー",
 　　"student002@shigaku.local": "辻 結香",
    "student003@shigaku.local": "辻 沙香",
@@ -124,7 +133,6 @@
  "student010@shigaku.local": "藤中 敬斗",
  "student011@shigaku.local": "吉元 碧唯"
   };
-
   const REGISTERED_STUDENTS = Object.keys(STUDENT_RECORDS);
 
   async function loadAndAggregateData() {
@@ -137,8 +145,9 @@
       const querySnapshot = await getDocs(q);
 
       const studentMap = {};
+      // ★ subjects: {} という教科集計用の空箱を追加
       REGISTERED_STUDENTS.forEach(id => {
-        studentMap[id] = { id: id, count7: 0, count30: 0, lastActive: null };
+        studentMap[id] = { id: id, count7: 0, count30: 0, lastActive: null, subjects: {} };
       });
 
       querySnapshot.forEach((doc) => {
@@ -146,7 +155,7 @@
         const sId = data.studentId;
         
         if (!studentMap[sId]) {
-          studentMap[sId] = { id: sId, count7: 0, count30: 0, lastActive: null };
+          studentMap[sId] = { id: sId, count7: 0, count30: 0, lastActive: null, subjects: {} };
         }
 
         const timestamp = data.timestamp ? data.timestamp.toDate() : null;
@@ -159,6 +168,13 @@
           if (!studentMap[sId].lastActive || timestamp > studentMap[sId].lastActive) {
             studentMap[sId].lastActive = timestamp;
           }
+
+          // ★追加：教科ごとの仕分けカウント処理
+          const subjectName = data.subject || 'その他/不明';
+          if (!studentMap[sId].subjects[subjectName]) {
+            studentMap[sId].subjects[subjectName] = 0;
+          }
+          studentMap[sId].subjects[subjectName]++;
         }
       });
 
@@ -182,17 +198,13 @@
 
   function sortAndRender(list, key, asc = false) {
     list.sort((a, b) => asc ? a[key] - b[key] : b[key] - a[key]);
-    
     const tbody = document.getElementById('student-list');
     tbody.innerHTML = '';
 
     list.forEach(student => {
       const tr = document.createElement('tr');
-      tr.className = 'student-row'; // クリック可能な行クラス
-      
-      if (student.count30 === 0) {
-        tr.classList.add('zero-activity');
-      }
+      tr.className = 'student-row';
+      if (student.count30 === 0) tr.classList.add('zero-activity');
 
       const studentName = STUDENT_RECORDS[student.id] || student.id;
       const dateStr = student.lastActive 
@@ -209,37 +221,67 @@
         <td>${dateStr} ${student.count30 === 0 ? '<span class="badge badge-alert">未受講</span>' : ''}</td>
       `;
       
-      // ★行をクリックした時にポップアップを開く処理
       tr.addEventListener('click', () => openStudentModal(student, studentName));
-      
       tbody.appendChild(tr);
     });
   }
 
-  // --- ポップアップ（モーダル）の制御ロジック ---
   const modal = document.getElementById('student-modal');
   const closeBtn = document.getElementById('modal-close-btn');
 
-  // 閉じるボタンと背景クリックでポップアップを閉じる
   closeBtn.onclick = () => modal.style.display = "none";
   window.onclick = (event) => { if (event.target == modal) modal.style.display = "none"; }
 
-  // ポップアップを開いて詳細データを取得する関数
   async function openStudentModal(student, studentName) {
-    // 基本情報をセット
     document.getElementById('modal-name').textContent = studentName;
     document.getElementById('modal-id').textContent = student.id;
     document.getElementById('modal-count7').textContent = student.count7;
     document.getElementById('modal-count30').textContent = student.count30;
     
+    // ★追加：教科別バランスの描画処理
+    const subjectsContainer = document.getElementById('modal-subjects-container');
+    subjectsContainer.innerHTML = ''; // 一度クリア
+
+    if (student.count30 === 0) {
+      subjectsContainer.innerHTML = '<div style="color: #888; font-size: 0.9em;">データがありません</div>';
+    } else {
+      // 回数が多い順に教科を並び替え
+      const sortedSubjects = Object.entries(student.subjects).sort((a, b) => b[1] - a[1]);
+      
+      sortedSubjects.forEach(([subjName, count]) => {
+        // 全体の回数に対して、その教科が何％かを計算
+        const percentage = Math.round((count / student.count30) * 100);
+        
+        // 教科名から自動でバーの色を決定
+        let barColor = "#95a5a6"; // デフォルト（グレー）
+        if (subjName.includes("英語")) barColor = "#e74c3c"; // 赤
+        else if (subjName.includes("数学") || subjName.includes("算数")) barColor = "#3498db"; // 青
+        else if (subjName.includes("国語")) barColor = "#e67e22"; // オレンジ
+        else if (subjName.includes("理科")) barColor = "#2ecc71"; // 緑
+        else if (subjName.includes("社会")) barColor = "#9b59b6"; // 紫
+
+        // バーのHTMLを追加
+        subjectsContainer.innerHTML += `
+          <div class="subject-bar-container">
+            <div class="subject-name">
+              <span>${subjName}</span>
+              <span>${count}回 <span style="color:#888; font-size:0.9em; font-weight:normal;">(${percentage}%)</span></span>
+            </div>
+            <div class="bar-bg">
+              <div class="bar-fill" style="width: ${percentage}%; background-color: ${barColor};"></div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
     const historyList = document.getElementById('modal-recent-list');
     const loadingText = document.getElementById('modal-history-loading');
     historyList.innerHTML = '';
     loadingText.style.display = 'block';
     
-    modal.style.display = "flex"; // ポップアップを表示
+    modal.style.display = "flex";
 
-    // ★インデックスを活用して最新5件の履歴を取得
     try {
       const q = query(
         collection(db, "learning_records"),
@@ -261,7 +303,6 @@
         const dateObj = data.timestamp ? data.timestamp.toDate() : null;
         const dateStr = dateObj ? dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '不明な日時';
         
-        // 教科や単元名（データベースに合わせて調整してください）
         const subject = data.subject || '教科不明';
         const unit = data.unit || '';
         
@@ -272,7 +313,7 @@
 
     } catch (e) {
       console.error("履歴取得エラー:", e);
-      loadingText.textContent = "❌ 履歴の取得に失敗しました（※インデックスの構築が完了していない可能性があります）";
+      loadingText.textContent = "❌ 履歴の取得に失敗しました";
     }
   }
 
