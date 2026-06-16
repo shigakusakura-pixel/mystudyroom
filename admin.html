@@ -12,7 +12,6 @@
   table { width: 100%; border-collapse: collapse; margin-top: 10px; }
   th, td { padding: 14px; text-align: left; border-bottom: 1px solid #e2e6ee; }
   th { background-color: #1a2e4a; color: white; user-select: none; }
-  
   th.sortable { cursor: pointer; position: relative; }
   th.sortable:hover { background-color: #2a4570; }
   
@@ -26,7 +25,7 @@
   .student-id-sub { font-size: 0.75em; color: #888; font-weight: normal; display: block; margin-top: 2px; }
   .loading { text-align: center; padding: 40px; font-size: 1.2em; color: #666; }
 
-  /* ポップアップ（モーダル）のスタイル */
+  /* モーダル */
   .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
   .modal-content { background: white; width: 90%; max-width: 500px; padding: 24px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); position: relative; max-height: 90vh; overflow-y: auto; }
   .modal-close { position: absolute; top: 15px; right: 20px; font-size: 1.5em; cursor: pointer; color: #888; }
@@ -36,7 +35,6 @@
   .stat-item { text-align: center; width: 48%; }
   .stat-num { font-size: 1.8em; font-weight: bold; color: #1a2e4a; }
   
-  /* 教科別バーのスタイル */
   .subject-bar-container { margin-bottom: 10px; }
   .subject-name { font-size: 0.85em; color: #444; margin-bottom: 4px; display: flex; justify-content: space-between; font-weight: bold; }
   .bar-bg { width: 100%; background-color: #e2e6ee; border-radius: 6px; height: 12px; overflow: hidden; }
@@ -44,7 +42,12 @@
 
   .recent-logs { font-size: 0.9em; max-height: 150px; overflow-y: auto; background: #fdfdfd; border: 1px solid #eee; padding: 10px; border-radius: 6px; }
   .recent-logs li { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed #ccc; list-style: none; }
-  .recent-logs ul { padding-left: 0; margin: 0; }
+  
+  /* メッセージ送信ボックスのスタイル */
+  .message-box { margin-top: 20px; background: #eef2f7; padding: 15px; border-radius: 8px; border-left: 4px solid #3498db; }
+  .message-box textarea { width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 8px; margin-bottom: 8px; resize: vertical; box-sizing: border-box; }
+  .send-btn { background: #3498db; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+  .send-btn:hover { background: #2980b9; }
 </style>
 </head>
 <body>
@@ -64,8 +67,7 @@
         <th>最終学習日時</th>
       </tr>
     </thead>
-    <tbody id="student-list">
-      </tbody>
+    <tbody id="student-list"></tbody>
   </table>
 </div>
 
@@ -89,20 +91,25 @@
     </div>
     
     <h4 style="margin: 15px 0 10px 0; font-size: 1em; color: #333;">📊 教科別バランス（過去30日間）</h4>
-    <div id="modal-subjects-container" style="margin-bottom: 20px;">
-      </div>
+    <div id="modal-subjects-container" style="margin-bottom: 20px;"></div>
 
     <h4 style="margin: 10px 0 5px 0; font-size: 1em; color: #333;">📝 最近の学習履歴（最新5件）</h4>
     <div id="modal-history-loading" style="font-size: 0.8em; color: #888;">履歴を読み込み中...</div>
-    <div class="recent-logs">
-      <ul id="modal-recent-list"></ul>
+    <div class="recent-logs"><ul id="modal-recent-list"></ul></div>
+
+    <div class="message-box">
+      <h4 style="margin: 0 0 10px 0; font-size: 1em; color: #1a2e4a;">💬 この生徒にメッセージを送る</h4>
+      <textarea id="teacher-msg-input" rows="2" placeholder="例：今週は社会をよく頑張っているね！土曜特訓もこの調子で！"></textarea>
+      <button id="send-msg-btn" class="send-btn">送信する</button>
+      <span id="msg-send-status" style="margin-left: 10px; font-size: 0.85em; color: #e74c3c;"></span>
     </div>
+
   </div>
 </div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getFirestore, collection, query, where, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getFirestore, collection, query, where, orderBy, limit, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBQjnlOfeVvWQJHDxGE9cq-jGsYF3uo0PY",
@@ -116,24 +123,14 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
- // ★名簿設定
   const STUDENT_RECORDS = {
-    "student001@shigaku.local": "後田　莉乃葉",
-    "teacher@shigaku.local": "日野　妙三",
-     "sky@shigaku.local": "Sky",
-    "guest": "ゲストユーザー",
-　　"student002@shigaku.local": "辻 結香",
-   "student003@shigaku.local": "辻 沙香",
-   "student004@shigaku.local": "二ノ宮 愛彩",
-   "student005@shigaku.local": "丸目 妃織",
- "student006@shigaku.local": "久保 善光",
- "student007@shigaku.local": "新留 らな",
- "student008@shigaku.local": "溝口 ゆうか",
- "student009@shigaku.local": "川原 美桜",
- "student010@shigaku.local": "藤中 敬斗",
- "student011@shigaku.local": "吉元 碧唯"
+    "student001@shigaku.local": "志学 太郎",
+    "teacher@shigaku.local": "講師用アカウント",
+    "guest": "ゲストユーザー"
   };
   const REGISTERED_STUDENTS = Object.keys(STUDENT_RECORDS);
+
+  let currentModalStudentId = ""; // ★現在開いている生徒IDを記憶する変数
 
   async function loadAndAggregateData() {
     try {
@@ -145,7 +142,6 @@
       const querySnapshot = await getDocs(q);
 
       const studentMap = {};
-      // ★ subjects: {} という教科集計用の空箱を追加
       REGISTERED_STUDENTS.forEach(id => {
         studentMap[id] = { id: id, count7: 0, count30: 0, lastActive: null, subjects: {} };
       });
@@ -153,27 +149,16 @@
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         const sId = data.studentId;
-        
-        if (!studentMap[sId]) {
-          studentMap[sId] = { id: sId, count7: 0, count30: 0, lastActive: null, subjects: {} };
-        }
+        if (!studentMap[sId]) studentMap[sId] = { id: sId, count7: 0, count30: 0, lastActive: null, subjects: {} };
 
         const timestamp = data.timestamp ? data.timestamp.toDate() : null;
-        
         if (timestamp) {
           studentMap[sId].count30++;
-          if (timestamp >= sevenDaysAgo) {
-            studentMap[sId].count7++;
-          }
-          if (!studentMap[sId].lastActive || timestamp > studentMap[sId].lastActive) {
-            studentMap[sId].lastActive = timestamp;
-          }
-
-          // ★追加：教科ごとの仕分けカウント処理
+          if (timestamp >= sevenDaysAgo) studentMap[sId].count7++;
+          if (!studentMap[sId].lastActive || timestamp > studentMap[sId].lastActive) studentMap[sId].lastActive = timestamp;
+          
           const subjectName = data.subject || 'その他/不明';
-          if (!studentMap[sId].subjects[subjectName]) {
-            studentMap[sId].subjects[subjectName] = 0;
-          }
+          if (!studentMap[sId].subjects[subjectName]) studentMap[sId].subjects[subjectName] = 0;
           studentMap[sId].subjects[subjectName]++;
         }
       });
@@ -189,10 +174,8 @@
 
       document.getElementById('loading-view').style.display = 'none';
       document.getElementById('student-table').style.display = 'table';
-
     } catch (e) {
-      console.error("データ集計エラー:", e);
-      document.getElementById('loading-view').textContent = "❌ データの読み込みに失敗しました。";
+      console.error("エラー:", e);
     }
   }
 
@@ -200,26 +183,17 @@
     list.sort((a, b) => asc ? a[key] - b[key] : b[key] - a[key]);
     const tbody = document.getElementById('student-list');
     tbody.innerHTML = '';
-
     list.forEach(student => {
       const tr = document.createElement('tr');
       tr.className = 'student-row';
       if (student.count30 === 0) tr.classList.add('zero-activity');
 
       const studentName = STUDENT_RECORDS[student.id] || student.id;
-      const dateStr = student.lastActive 
-        ? student.lastActive.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-        : '---';
+      const dateStr = student.lastActive ? student.lastActive.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---';
 
-      tr.innerHTML = `
-        <td>
-          <strong>${studentName}</strong>
-          <span class="student-id-sub">${student.id}</span>
-        </td>
-        <td>${student.count7} 回</td>
-        <td>${student.count30} 回</td>
-        <td>${dateStr} ${student.count30 === 0 ? '<span class="badge badge-alert">未受講</span>' : ''}</td>
-      `;
+      tr.innerHTML = `<td><strong>${studentName}</strong><span class="student-id-sub">${student.id}</span></td>
+                      <td>${student.count7} 回</td><td>${student.count30} 回</td>
+                      <td>${dateStr} ${student.count30 === 0 ? '<span class="badge badge-alert">未受講</span>' : ''}</td>`;
       
       tr.addEventListener('click', () => openStudentModal(student, studentName));
       tbody.appendChild(tr);
@@ -228,94 +202,101 @@
 
   const modal = document.getElementById('student-modal');
   const closeBtn = document.getElementById('modal-close-btn');
-
   closeBtn.onclick = () => modal.style.display = "none";
   window.onclick = (event) => { if (event.target == modal) modal.style.display = "none"; }
 
   async function openStudentModal(student, studentName) {
+    currentModalStudentId = student.id; // ★開いた生徒のIDを記憶
+    
+    // 画面セット
     document.getElementById('modal-name').textContent = studentName;
     document.getElementById('modal-id').textContent = student.id;
     document.getElementById('modal-count7').textContent = student.count7;
     document.getElementById('modal-count30').textContent = student.count30;
     
-    // ★追加：教科別バランスの描画処理
-    const subjectsContainer = document.getElementById('modal-subjects-container');
-    subjectsContainer.innerHTML = ''; // 一度クリア
+    // メッセージ入力欄をリセット
+    document.getElementById('teacher-msg-input').value = "";
+    document.getElementById('msg-send-status').textContent = "";
 
+    const subjectsContainer = document.getElementById('modal-subjects-container');
+    subjectsContainer.innerHTML = '';
     if (student.count30 === 0) {
       subjectsContainer.innerHTML = '<div style="color: #888; font-size: 0.9em;">データがありません</div>';
     } else {
-      // 回数が多い順に教科を並び替え
       const sortedSubjects = Object.entries(student.subjects).sort((a, b) => b[1] - a[1]);
-      
       sortedSubjects.forEach(([subjName, count]) => {
-        // 全体の回数に対して、その教科が何％かを計算
         const percentage = Math.round((count / student.count30) * 100);
-        
-        // 教科名から自動でバーの色を決定
-        let barColor = "#95a5a6"; // デフォルト（グレー）
-        if (subjName.includes("英語")) barColor = "#e74c3c"; // 赤
-        else if (subjName.includes("数学") || subjName.includes("算数")) barColor = "#3498db"; // 青
-        else if (subjName.includes("国語")) barColor = "#e67e22"; // オレンジ
-        else if (subjName.includes("理科")) barColor = "#2ecc71"; // 緑
-        else if (subjName.includes("社会")) barColor = "#9b59b6"; // 紫
+        let barColor = "#95a5a6";
+        if (subjName.includes("英語")) barColor = "#e74c3c";
+        else if (subjName.includes("数学") || subjName.includes("算数")) barColor = "#3498db";
+        else if (subjName.includes("国語")) barColor = "#e67e22";
+        else if (subjName.includes("理科")) barColor = "#2ecc71";
+        else if (subjName.includes("社会")) barColor = "#9b59b6";
 
-        // バーのHTMLを追加
         subjectsContainer.innerHTML += `
           <div class="subject-bar-container">
-            <div class="subject-name">
-              <span>${subjName}</span>
-              <span>${count}回 <span style="color:#888; font-size:0.9em; font-weight:normal;">(${percentage}%)</span></span>
-            </div>
-            <div class="bar-bg">
-              <div class="bar-fill" style="width: ${percentage}%; background-color: ${barColor};"></div>
-            </div>
-          </div>
-        `;
+            <div class="subject-name"><span>${subjName}</span><span>${count}回 <span style="color:#888; font-size:0.9em; font-weight:normal;">(${percentage}%)</span></span></div>
+            <div class="bar-bg"><div class="bar-fill" style="width: ${percentage}%; background-color: ${barColor};"></div></div>
+          </div>`;
       });
     }
 
     const historyList = document.getElementById('modal-recent-list');
-    const loadingText = document.getElementById('modal-history-loading');
     historyList.innerHTML = '';
-    loadingText.style.display = 'block';
-    
     modal.style.display = "flex";
 
     try {
-      const q = query(
-        collection(db, "learning_records"),
-        where("studentId", "==", student.id),
-        orderBy("timestamp", "desc"),
-        limit(5)
-      );
-      
+      const q = query(collection(db, "learning_records"), where("studentId", "==", student.id), orderBy("timestamp", "desc"), limit(5));
       const querySnapshot = await getDocs(q);
-      loadingText.style.display = 'none';
+      document.getElementById('modal-history-loading').style.display = 'none';
 
       if (querySnapshot.empty) {
         historyList.innerHTML = '<li style="color:#888;">学習履歴がありません</li>';
         return;
       }
-
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         const dateObj = data.timestamp ? data.timestamp.toDate() : null;
-        const dateStr = dateObj ? dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '不明な日時';
-        
+        const dateStr = dateObj ? dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '不明';
         const subject = data.subject || '教科不明';
         const unit = data.unit || '';
-        
-        const li = document.createElement('li');
-        li.innerHTML = `<span style="color:#666; font-size:0.9em; margin-right:10px;">${dateStr}</span> <strong>${subject}</strong> <br><span style="font-size:0.9em; color:#444;">${unit}</span>`;
-        historyList.appendChild(li);
+        historyList.innerHTML += `<li><span style="color:#666; font-size:0.9em; margin-right:10px;">${dateStr}</span> <strong>${subject}</strong> <br><span style="font-size:0.9em; color:#444;">${unit}</span></li>`;
       });
-
-    } catch (e) {
-      console.error("履歴取得エラー:", e);
-      loadingText.textContent = "❌ 履歴の取得に失敗しました";
-    }
+    } catch (e) {}
   }
+
+  // ==========================================
+  // ★追加：メッセージ送信ボタンの処理
+  // ==========================================
+  document.getElementById('send-msg-btn').addEventListener('click', async () => {
+    const msgInput = document.getElementById('teacher-msg-input');
+    const statusText = document.getElementById('msg-send-status');
+    const message = msgInput.value.trim();
+
+    if (!message) {
+      statusText.textContent = "メッセージを入力してください";
+      return;
+    }
+
+    statusText.style.color = "#333";
+    statusText.textContent = "送信中...";
+
+    try {
+      await addDoc(collection(db, "teacher_messages"), {
+        studentId: currentModalStudentId,
+        message: message,
+        isRead: false,
+        timestamp: serverTimestamp()
+      });
+      statusText.style.color = "#27ae60";
+      statusText.textContent = "✅ 送信しました！";
+      msgInput.value = ""; // 送信後に枠を空にする
+    } catch (e) {
+      console.error(e);
+      statusText.style.color = "#e74c3c";
+      statusText.textContent = "❌ 送信に失敗しました";
+    }
+  });
 
   loadAndAggregateData();
 </script>
