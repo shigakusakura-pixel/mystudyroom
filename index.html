@@ -480,38 +480,17 @@ body::before {
 
 </div>
 <script type="module">
+  // ＝＝＝ 応急処置：ここから ＝＝＝
+  const PASS = "shigaku"; // ←ここに設定したいパスワードを入れてください
+  const input = prompt("【My スタディ】パスワードを入力してください");
+  if (input !== PASS) {
+    document.body.innerHTML = "<h2 style='text-align:center; margin-top:50px; color:#1a2e4a;'>パスワードが違います。<br>ページを再読み込みしてやり直してください。</h2>";
+    throw new Error("パスワード不一致"); // 画面を隠してプログラムを停止します
+  }
+  // ＝＝＝ 応急処置：ここまで ＝＝＝
+
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyBQjnlOfeVvWQJHDxGE9cq-jGsYF3uo0PY",
-    authDomain: "mystudy-portal.firebaseapp.com",
-    projectId: "mystudy-portal",
-    storageBucket: "mystudy-portal.firebasestorage.app",
-    messagingSenderId: "62253255474",
-    appId: "1:62253255474:web:817a3cbd1ab3ea63e7e52b"
-  };
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-
-  const urlParams = new URLSearchParams(window.location.search);
-  const studentId = urlParams.get('student') || 'ゲスト';
-
-  // タブを押したときに記録して移動する関数
-  window.logAndRedirect = async function(url) {
-    try {
-      await addDoc(collection(db, "learning_records"), {
-        studentId: studentId,
-        subject: "授業動画",
-        unit: "動画視聴",
-        questionId: "視聴開始",
-        action: "視聴",
-        timestamp: serverTimestamp()
-      });
-    } catch (e) { console.error(e); }
-    window.location.href = url; // 記録後にサイトへ移動
-  };
-</script>
+  // ...（以下、元のコードが続きます）
 
 </body>
 </html>
