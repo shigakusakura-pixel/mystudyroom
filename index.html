@@ -15,13 +15,13 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
 
-/* === 修正：上品なデザインと横幅のログイン枠 === */
+/* 上品なデザインと横幅のログイン枠 */
 #login-wrapper {
   display: flex; flex-direction: column; align-items: center;
   margin-top: 20px; animation: fadeUp 0.6s ease both;
 }
 .elegant-input {
-  width: 280px; /* ★横幅を短くスタイリッシュに */
+  width: 280px;
   padding: 16px 20px;
   border-radius: 8px;
   font-size: 1.1rem;
@@ -29,27 +29,16 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
   margin-bottom: 12px;
   transition: all 0.3s ease;
 }
-/* ID用：上品な淡いブルー */
-.id-input {
-  background-color: #f4f7fb;
-  border: 1px solid #dbe4f0;
-  color: var(--navy);
-}
+.id-input { background-color: #f4f7fb; border: 1px solid #dbe4f0; color: var(--navy); }
 .id-input:focus { outline: none; border-color: #a3c0e4; box-shadow: 0 0 0 3px rgba(163,192,228,0.2); }
 .id-input::placeholder { color: #8fa5c2; font-weight: normal; }
 
-/* パスワード用：上品な淡いゴールド（ベージュ） */
-.pass-input {
-  background-color: #fdfcf7;
-  border: 1px solid #f0eada;
-  color: var(--navy);
-  margin-bottom: 24px;
-}
+.pass-input { background-color: #fdfcf7; border: 1px solid #f0eada; color: var(--navy); margin-bottom: 24px; }
 .pass-input:focus { outline: none; border-color: var(--gold-light); box-shadow: 0 0 0 3px rgba(212,173,62,0.15); }
 .pass-input::placeholder { color: #c5b89a; font-weight: normal; }
 
 .login-submit-btn {
-  width: 280px; /* ★ボタンも入力欄と幅を統一 */
+  width: 280px;
   padding: 16px;
   background: linear-gradient(135deg, var(--gold-light), var(--gold));
   color: #fff;
@@ -64,7 +53,7 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
 .login-submit-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(180,148,46,0.3); }
 #login-error { color: #d32f2f; font-size: 0.95rem; text-align: center; margin-top: 15px; display: none; font-weight: bold; }
 
-/* === 既存のポータルスタイル === */
+/* 既存のポータルスタイル */
 body::before { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse at 15% 0%, rgba(180,148,46,0.06) 0%, transparent 50%), radial-gradient(ellipse at 85% 100%, rgba(26,46,74,0.04) 0%, transparent 50%); pointer-events: none; z-index: 0; }
 .container { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; padding: 40px 20px 60px; }
 .header { text-align: center; margin-bottom: 32px; }
@@ -81,13 +70,13 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 .contact-info { font-size: 0.75rem; color: var(--accent-green); font-weight: 500; }
 .message-content { color: #004098; font-weight: 600; line-height: 1.6; padding: 15px; font-size: 0.9em; background-color: #f9f9f9; }
 
-/* === ★修正：カードの高さ崩れを自動で揃える === */
+/* 高さ自動調整が効いたカードグリッド */
 .card-grid { display: grid; grid-template-columns: 1fr; gap: 24px 20px; animation: fadeUp 0.8s ease both; align-items: stretch; }
 @media (min-width: 768px) { .container { max-width: 880px; } .card-grid { grid-template-columns: repeat(2, 1fr); } }
-.section { display: flex; flex-direction: column; height: 100%; } /* コンテナの高さを確保 */
+.section { display: flex; flex-direction: column; height: 100%; }
 .section-label { font-size: 0.78rem; letter-spacing: 0.2em; color: var(--gold); font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
 .section-label::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border), transparent); }
-.card { display: flex; align-items: center; gap: 16px; background: var(--white); border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px; text-decoration: none; color: var(--text); box-shadow: 0 2px 12px var(--card-shadow); transition: transform 0.2s; flex: 1; } /* ★flex: 1で空きスペースを自動で埋めて高さを揃える */
+.card { display: flex; align-items: center; gap: 16px; background: var(--white); border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px; text-decoration: none; color: var(--text); box-shadow: 0 2px 12px var(--card-shadow); transition: transform 0.2s; flex: 1; }
 .card-icon { font-size: 1.8rem; width: 56px; height: 56px; border-radius: 14px; background: #faf6eb; border: 1px solid rgba(180,148,46,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .card-body { flex: 1; }
 .card-title { font-size: 1.15rem; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
@@ -121,7 +110,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 
   <div id="login-wrapper" style="display: none;">
     <input type="text" id="id-input" placeholder="ID" class="elegant-input id-input">
-    <input type="password" id="pass-input" placeholder="PassWord" class="elegant-input pass-input">
+    <input type="password" id="pass-input" placeholder="PssWord" class="elegant-input pass-input">
     <button id="login-btn" class="login-submit-btn">ログインして学習を始める</button>
     <div id="login-error">IDまたはパスワードが間違っています</div>
   </div>
@@ -148,9 +137,8 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 </div>
 
 <script type="module">
-  // 裏側の認証システムは、先ほど無事にログイン成功したコードのままです
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getFirestore, collection, doc, getDoc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getFirestore, collection, query, where, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
   const firebaseConfig = {
@@ -166,17 +154,53 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
   const db = getFirestore(app);
   const auth = getAuth(app);
 
+  // ★ ここに名簿が入っています！生徒を追加する時はこの中に追記してください
+  const STUDENT_RECORDS = {
+    "student001@shigaku.local": "後田 莉乃葉",
+    "teacher@shigaku.local": "日野 妙三",
+    "sky@shigaku.local": "Sky",
+    "guest": "ゲストユーザー",
+    "student002@shigaku.local": "辻 結香",
+    "student003@shigaku.local": "辻 沙香",
+    "student004@shigaku.local": "二ノ宮 愛彩",
+    "student005@shigaku.local": "丸目 妃織",
+    "student006@shigaku.local": "久保 善光",
+    "student007@shigaku.local": "新留 らな",
+    "student008@shigaku.local": "溝口 ゆうか",
+    "student009@shigaku.local": "川原 美桜",
+    "student010@shigaku.local": "藤中 敬斗",
+    "student011@shigaku.local": "吉元 碧唯"
+  };
+
   let currentStudentId = "";
 
-  async function loadPersonalMessage(idString) {
+  async function loadPersonalMessage(fullEmail) {
     const msgArea = document.getElementById('personal-message-area');
-    const displayName = idString.includes('@') ? idString.split('@')[0] : idString;
+    // 名簿に登録があれば漢字のフルネームを、なければ@より前を表示
+    const displayName = STUDENT_RECORDS[fullEmail] || fullEmail.split('@')[0];
     const defaultMsg = `<span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${displayName} さん、ようこそ！</strong></span><br><br>志学生学力向上サイト！MyStudy "Myスタ". 反復、反復、定着、定着 → "学力向上"!!<br>You guys, study hard every day. 日々の学習のモチベーションアップにぜひご活用ください！<br>New Contents｢英文法 完全マスター｣導入! 英単語タブから使用できます。`;
 
     try {
-      const docSnap = await getDoc(doc(db, "students", displayName));
-      if (docSnap.exists() && docSnap.data().message) {
-        msgArea.innerHTML = `<span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${displayName} さんへのお知らせ</strong></span><br><br>${docSnap.data().message}`;
+      const q = query(collection(db, "teacher_messages"), where("studentId", "==", fullEmail));
+      const querySnapshot = await getDocs(q);
+
+      let latestMsg = null;
+      let latestTime = 0;
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        let time = 0;
+        if (data.timestamp) {
+          time = typeof data.timestamp.toDate === 'function' ? data.timestamp.toDate().getTime() : new Date(data.timestamp).getTime();
+        }
+        if (time >= latestTime) {
+          latestTime = time;
+          latestMsg = data.message;
+        }
+      });
+
+      if (latestMsg) {
+        msgArea.innerHTML = `<span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${displayName} さんへのお知らせ</strong></span><br><br>${latestMsg.replace(/\n/g, '<br>')}`;
       } else {
         msgArea.innerHTML = defaultMsg;
       }
