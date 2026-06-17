@@ -2,89 +2,41 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Shigaku — My Study Room</title>
-<style>
-/* CSSは以前の美しいデザインをそのまま踏襲しています */
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Noto+Sans+JP:wght@400;700;900&display=swap');
-:root { --navy: #1a2e4a; --gold: #b8942e; --bg: #f7f8fb; }
-* { box-sizing: border-box; }
-body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--navy); min-height: 100vh; }
-/* ログイン画面用 */
-#login-screen { position: fixed; top:0; left:0; width:100%; height:100vh; background: #1a2e4a; display: flex; align-items: center; justify-content: center; z-index: 9999; }
-.login-box { background: white; padding: 40px; border-radius: 16px; text-align: center; width: 90%; max-width: 400px; }
-input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 8px; }
-button { width: 100%; padding: 12px; background: #b8942e; color: white; border: none; border-radius: 8px; cursor: pointer; }
-/* ポータル用 */
-#main-content { display: none; padding: 40px 20px; max-width: 680px; margin: 0 auto; }
-.message-content { background: #e8f5e9; padding: 20px; border-left: 5px solid #2e7d32; margin-bottom: 30px; }
-.card { display: flex; align-items: center; gap: 16px; background: white; padding: 20px; margin-bottom: 15px; border-radius: 16px; text-decoration: none; color: inherit; box-shadow: 0 2px 12px rgba(0,0,0,0.05); }
-</style>
+<title>My Study Room</title>
 </head>
 <body>
-
-<div id="login-screen">
-  <div class="login-box">
-    <h2>My Study Room</h2>
-    <input type="text" id="id-input" placeholder="ログインID">
-    <input type="password" id="pass-input" placeholder="パスワード">
-    <button id="login-btn">ログイン</button>
-  </div>
-</div>
-
-<div id="main-content">
-  <div class="header" style="text-align:center; margin-bottom:30px;">
-    <button id="logout-btn" style="width:auto; padding:5px 10px; font-size:12px;">ログアウト</button>
-    <h1>Shigaku Seminar</h1>
-  </div>
-  <div class="message-content" id="personal-message-area">読み込み中...</div>
-  
-  <a class="card" href="https://shigakusakura-pixel.github.io/tango/">英語へ</a>
-  <a class="card" href="https://shigaku-mystudy.com" target="_blank">解説動画へ</a>
-</div>
-
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getFirestore, collection, doc, getDoc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-
-  const firebaseConfig = { /* (Firebase設定はそのまま) */ };
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const auth = getAuth(app);
-
-  let currentStudentId = "";
-
-  // ログイン状態の確認
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      currentStudentId = user.email.split('@')[0];
-      document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('main-content').style.display = 'block';
-      loadMessage(currentStudentId);
+  <h1>My Study Room</h1>
+  <p>読み込み中...</p>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    
+    const firebaseConfig = {
+      apiKey: "AIzaSyBQjnlOfeVvWQJHDxGE9cq-jGsYF3uo0PY",
+      authDomain: "mystudy-portal.firebaseapp.com",
+      projectId: "mystudy-portal",
+      storageBucket: "mystudy-portal.firebasestorage.app",
+      messagingSenderId: "62253255474",
+      appId: "1:62253255474:web:817a3cbd1ab3ea63e7e52b"
+    };
+    
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    
+    // ログイン処理を排除し、アクセスログだけを送るシンプルな状態
+    async function init() {
+      try {
+        await addDoc(collection(db, "access_logs"), {
+          studentId: "debug",
+          subject: "テストアクセス",
+          accessedAt: serverTimestamp()
+        });
+        document.body.innerHTML = "<h1>正常にFirebaseに接続できました</h1><p>ブラウザで正しく動作しています。</p>";
+      } catch (e) {
+        document.body.innerHTML = "<h1>エラーが発生しました</h1><p>" + e.message + "</p>";
+      }
     }
-  });
-
-  // メッセージ表示機能
-  async function loadMessage(id) {
-    const docSnap = await getDoc(doc(db, "students", id));
-    const msg = (docSnap.exists() && docSnap.data().message) ? docSnap.data().message : "今日も頑張ろう！";
-    document.getElementById('personal-message-area').innerHTML = `<strong>${id} さん：</strong><br>${msg}`;
-  }
-
-  // ログイン処理
-  document.getElementById('login-btn').addEventListener('click', async () => {
-    const id = document.getElementById('id-input').value;
-    try {
-      await signInWithEmailAndPassword(auth, id + "@mystudy.dummy.com", document.getElementById('pass-input').value);
-    } catch(e) { alert("IDかパスワードが違います"); }
-  });
-
-  // ログアウト処理
-  document.getElementById('logout-btn').addEventListener('click', async () => {
-    await signOut(auth);
-    location.reload();
-  });
-</script>
+    init();
+  </script>
 </body>
 </html>
