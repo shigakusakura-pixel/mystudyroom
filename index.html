@@ -9,40 +9,32 @@
 
 :root {
   --navy: #1a2e4a; --navy-light: #2a4570; --gold: #b8942e; --gold-light: #d4ad3e;
-  --gold-bg: #faf6eb; --bg: #f7f8fb; --white: #ffffff; --text: #1a2e4a;
-  --sub: #6a7a90; --border: #e2e6ee; --card-shadow: rgba(26,46,74,0.06); --accent-green: #2a9d8f;
+  --bg: #f7f8fb; --white: #ffffff; --text: #1a2e4a; --sub: #6a7a90;
+  --border: #e2e6ee; --card-shadow: rgba(26,46,74,0.06); --accent-green: #2a9d8f;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
 
-/* ★先生の画像と全く同じ、シンプルなログイン枠 */
-#simple-login-area {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 5px;
-  margin-top: 100px;
+/* === 先生の画像を完全再現したログイン画面 === */
+#login-wrapper {
+  display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh;
 }
-#simple-login-area input {
-  padding: 6px 8px;
-  border: 1px solid #777;
-  border-radius: 2px;
-  font-size: 14px;
-  width: 160px;
+.simple-login-box {
+  background: #ffffff; border: 1px solid #dcdcdc; border-radius: 6px; padding: 15px 20px;
+  display: flex; gap: 10px; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
-#simple-login-area button {
-  padding: 6px 12px;
-  background-color: #efefef;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
-  color: #333;
+.simple-login-box input {
+  padding: 8px 10px; border: 1px solid #ccc; font-size: 14px; width: 190px;
 }
-#simple-login-area button:hover { background-color: #e0e0e0; }
-#login-error { color: #e74c3c; font-size: 0.9rem; text-align: center; margin-top: 15px; display: none; font-weight: bold; }
+.simple-login-box button {
+  padding: 8px 16px; background-color: #f1f1f1; border: 1px solid #dcdcdc; border-radius: 4px;
+  font-size: 14px; cursor: pointer; color: #333;
+}
+.simple-login-box button:hover { background-color: #e4e4e4; }
+#login-error { color: #d32f2f; font-size: 0.85rem; margin-top: 15px; font-weight: bold; display: none; }
+#loading-text { font-weight: bold; color: var(--navy); margin-bottom: 20px; }
 
-/* 既存のポータルスタイル */
+/* === 既存のポータルスタイル === */
 body::before { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse at 15% 0%, rgba(180,148,46,0.06) 0%, transparent 50%), radial-gradient(ellipse at 85% 100%, rgba(26,46,74,0.04) 0%, transparent 50%); pointer-events: none; z-index: 0; }
 .container { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; padding: 40px 20px 60px; }
 .header { text-align: center; margin-bottom: 32px; }
@@ -63,14 +55,13 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 .section-label { font-size: 0.78rem; letter-spacing: 0.2em; color: var(--gold); font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
 .section-label::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border), transparent); }
 .card { display: flex; align-items: center; gap: 16px; background: var(--white); border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px; text-decoration: none; color: var(--text); box-shadow: 0 2px 12px var(--card-shadow); transition: transform 0.2s; }
-.card-icon { font-size: 1.8rem; width: 56px; height: 56px; border-radius: 14px; background: var(--gold-bg); border: 1px solid rgba(180,148,46,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.card-icon { font-size: 1.8rem; width: 56px; height: 56px; border-radius: 14px; background: #faf6eb; border: 1px solid rgba(180,148,46,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .card-body { flex: 1; }
 .card-title { font-size: 1.15rem; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
 .card-title-en { font-family: 'Playfair Display', serif; font-size: 0.8rem; color: var(--gold); }
 .card-desc { font-size: 0.82rem; color: var(--sub); margin-top: 5px; line-height: 1.55; }
 .nowrap { display: inline-block; white-space: nowrap; }
-.card-badge { font-size: 0.7rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
-.badge-ready { background: #edf8f0; color: #2a9d5c; border: 1px solid #c4ebd0; }
+.card-badge { font-size: 0.7rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; background: #edf8f0; color: #2a9d5c; border: 1px solid #c4ebd0; }
 .card-arrow { color: var(--gold); font-size: 1.4rem; font-weight: 700; opacity: 0.6; }
 .footer { text-align: center; margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); }
 .footer p { font-size: 0.78rem; color: var(--sub); }
@@ -79,8 +70,12 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 </head>
 <body>
 
+<div id="loading-wrapper" style="display: flex; justify-content: center; align-items: center; height: 100vh;">
+  <div id="loading-text">システムを確認中...</div>
+</div>
+
 <div id="login-wrapper" style="display: none;">
-  <div id="simple-login-area">
+  <div class="simple-login-box">
     <input type="text" id="id-input" placeholder="ID">
     <input type="password" id="pass-input" placeholder="パスワード">
     <button id="login-btn">ログイン</button>
@@ -137,45 +132,43 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 
   let currentStudentId = "";
 
-  // 1. Firebaseから個別メッセージを取得
-  async function loadPersonalMessage(studentId) {
+  // 個別メッセージの取得
+  async function loadPersonalMessage(idString) {
     const msgArea = document.getElementById('personal-message-area');
-    const defaultMsg = `
-      <span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${studentId} さん、ようこそ！</strong></span><br><br>
-      志学生学力向上サイト！MyStudy "Myスタ". 反復、反復、定着、定着 → "学力向上"!!<br>
-      You guys, study hard every day. 日々の学習のモチベーションアップにぜひご活用ください！<br>
-      New Contents｢英文法 完全マスター｣導入! 英単語タブから使用できます。
-    `;
+    // IDが teacher@shigaku.local のように@が含まれている場合は@より前を名前として扱う
+    const displayName = idString.includes('@') ? idString.split('@')[0] : idString;
+    const defaultMsg = `<span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${displayName} さん、ようこそ！</strong></span><br><br>志学生学力向上サイト！MyStudy "Myスタ". 反復、反復、定着、定着 → "学力向上"!!<br>You guys, study hard every day. 日々の学習のモチベーションアップにぜひご活用ください！<br>New Contents｢英文法 完全マスター｣導入! 英単語タブから使用できます。`;
 
     try {
-      const docSnap = await getDoc(doc(db, "students", studentId));
+      const docSnap = await getDoc(doc(db, "students", displayName));
       if (docSnap.exists() && docSnap.data().message) {
-        msgArea.innerHTML = `
-          <span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${studentId} さんへのお知らせ</strong></span><br><br>
-          ${docSnap.data().message}
-        `;
+        msgArea.innerHTML = `<span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${displayName} さんへのお知らせ</strong></span><br><br>${docSnap.data().message}`;
       } else {
         msgArea.innerHTML = defaultMsg;
       }
-    } catch (error) {
+    } catch (e) {
       msgArea.innerHTML = defaultMsg;
     }
   }
 
-  // 2. ログイン状態の確認（一瞬のチラつきを防ぎつつ、状態に応じて画面を出す）
+  // ログイン状態の確認処理
   onAuthStateChanged(auth, (user) => {
+    document.getElementById('loading-wrapper').style.display = 'none'; // ローディングを消す
+    
     if (user) {
-      currentStudentId = user.email.split('@')[0];
+      // ログイン済みならポータルを表示
+      currentStudentId = user.email;
       document.getElementById('login-wrapper').style.display = 'none';
       document.getElementById('main-content').style.display = 'block';
       loadPersonalMessage(currentStudentId);
     } else {
-      document.getElementById('login-wrapper').style.display = 'block';
+      // 未ログインなら入力画面を表示
       document.getElementById('main-content').style.display = 'none';
+      document.getElementById('login-wrapper').style.display = 'flex';
     }
   });
 
-  // 3. ログインボタン処理（Firebaseで認証）
+  // ログインボタンを押した時の処理
   document.getElementById('login-btn').addEventListener('click', async () => {
     const id = document.getElementById('id-input').value.trim();
     const pass = document.getElementById('pass-input').value.trim();
@@ -186,12 +179,15 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
       return;
     }
 
+    // もし@が含まれていなければダミーのドメインを付ける（teacher@shigaku.localのような場合はそのまま使う）
     const loginEmail = id.includes('@') ? id : `${id}@mystudy.dummy.com`;
 
     try {
+      // Firebaseにログイン指示を送る。成功すれば自動的に上の onAuthStateChanged が作動して画面が切り替わる
       await signInWithEmailAndPassword(auth, loginEmail, pass);
       errorMsg.style.display = 'none';
       
+      // アクセス記録
       try {
         await addDoc(collection(db, "access_logs"), {
           studentId: id,
@@ -205,41 +201,37 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     }
   });
 
-  // 4. ログアウト処理
+  // ログアウト処理
   document.getElementById('logout-btn').addEventListener('click', async () => {
     await signOut(auth);
     document.getElementById('id-input').value = '';
     document.getElementById('pass-input').value = '';
   });
 
-  // 5. 各学習ページへのリンククリック時
+  // 各教科へのリンクと動画記録
   document.addEventListener('click', async (e) => {
     const link = e.target.closest('a');
     if (!link || link.id === 'logout-btn') return;
     
     const href = link.getAttribute('href');
     if (!href || href === '#') return;
-
     e.preventDefault(); 
-    const linkText = link.textContent || "";
     
-    if (linkText.includes("動画") || href.includes("shigaku-mystudy.com")) {
+    const displayName = currentStudentId.includes('@') ? currentStudentId.split('@')[0] : currentStudentId;
+    
+    if (href.includes("shigaku-mystudy.com")) {
       try {
         await addDoc(collection(db, "learning_records"), {
-          studentId: currentStudentId || "ゲスト",
-          subject: "授業動画",
-          unit: "動画視聴",
-          questionId: "視聴開始",
-          action: "視聴",
+          studentId: displayName || "ゲスト",
+          subject: "授業動画", unit: "動画視聴", questionId: "視聴開始", action: "視聴",
           correct: 1, total: 1, timestamp: serverTimestamp()
         });
-      } catch (error) { console.error(error); }
-      if (link.getAttribute('target') === '_blank') { window.open(href, '_blank'); } else { window.location.href = href; }
+      } catch (e) {}
+      window.open(href, '_blank');
     } else {
       let targetUrl = href;
-      if (currentStudentId && !href.includes('student=')) {
-        const separator = href.includes('?') ? '&' : '?';
-        targetUrl = href + separator + "student=" + currentStudentId;
+      if (displayName && !href.includes('student=')) {
+        targetUrl = href + (href.includes('?') ? '&' : '?') + "student=" + displayName;
       }
       if (link.getAttribute('target') === '_blank') { window.open(targetUrl, '_blank'); } else { window.location.href = targetUrl; }
     }
