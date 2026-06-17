@@ -32,7 +32,7 @@ body {
   overflow-x: hidden;
 }
 
-/* === 追加：ログイン画面のスタイル === */
+/* === ログイン画面のスタイル === */
 #login-screen {
   position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
   background: radial-gradient(ellipse at center, #2a4570 0%, #1a2e4a 100%);
@@ -79,6 +79,25 @@ body::before {
   padding: 36px 24px 32px; margin-bottom: 20px; position: relative; overflow: hidden;
   border: 3px solid var(--gold-light); box-shadow: 0 4px 20px rgba(41,99,177,0.15), 0 0 0 1px rgba(212,173,62,0.2);
 }
+
+/* ★追加：ログアウトボタンのスタイル */
+#logout-btn {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 10;
+}
+#logout-btn:hover { background: rgba(255, 255, 255, 0.4); }
+
 .header .school-name {
   font-family: 'Playfair Display', serif; font-size: clamp(1.7rem, 7.5vw, 3.2rem); font-weight: 900;
   background: linear-gradient(135deg, #d4ad3e, #f0d060, #d4ad3e);
@@ -140,6 +159,8 @@ body::before {
 <div class="container" id="main-content">
   <div class="header">
     <div class="header-top">
+      <button id="logout-btn">ログアウト</button>
+      
       <div class="school-name">Shigaku Seminar</div>
       <div class="room-name">My Study Room</div>
     </div>
@@ -246,12 +267,11 @@ body::before {
 </div>
 
 <script type="module">
-  // Firebaseモジュールの読み込み（認証機能 "firebase-auth.js" を追加）
+  // ★signOut を追加で読み込みます
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
   import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
-  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
 
-  // Firebaseの設定
   const firebaseConfig = {
     apiKey: "AIzaSyBQjnlOfeVvWQJHDxGE9cq-jGsYF3uo0PY",
     authDomain: "mystudy-portal.firebaseapp.com",
@@ -265,119 +285,25 @@ body::before {
   const db = getFirestore(app);
   const auth = getAuth(app);
 
-  let currentStudentId = ""; // ログインした生徒のIDを保持する変数
+  let currentStudentId = ""; 
 
-  // === 1. ログイン済みの場合はそのまま画面を表示 ===
+  // 1. ログイン状態の確認（ログインしていればポータルを表示）
   onAuthStateChanged(auth, (user) => {
     if (user) {
-      // ログイン成功している場合
-      currentStudentId = user.email.split('@')[0]; // メールアドレスの@より前をIDとして使用
+      currentStudentId = user.email.split('@')[0];
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('main-content').style.display = 'block';
-      recordAccess(currentStudentId);
+      // 注意: ページリロードごとにアクセスログが飛ぶのを防ぐため、ここでの recordAccess は外しました
+    } else {
+      // ログアウト状態ならログイン画面を表示
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('main-content').style.display = 'none';
     }
   });
 
-  // === 2. ログインボタンが押された時の処理 ===
+  // 2. ログインボタンが押された時の処理
   const loginBtn = document.getElementById('login-btn');
   loginBtn.addEventListener('click', async () => {
     const id = document.getElementById('id-input').value.trim();
     const pass = document.getElementById('pass-input').value.trim();
     const errorMsg = document.getElementById('login-error');
-    
-    if (!id || !pass) {
-      errorMsg.textContent = "IDとパスワードを入力してください";
-      errorMsg.style.display = 'block';
-      return;
-    }
-
-    // ★重要: Firebase Authは「メールアドレス」の形式が必要なため、
-    // 入力されたIDの末尾にダミーのドメインを自動で補って認証します。
-    // （もしFirebaseコンソールに普通のアドレスで登録している場合は、@以降も入力させればOKです）
-    const loginEmail = id.includes('@') ? id : `${id}@mystudy.dummy.com`;
-
-    try {
-      // Firebaseにログイン要求を送信
-      const userCredential = await signInWithEmailAndPassword(auth, loginEmail, pass);
-      
-      // 認証成功！
-      errorMsg.style.display = 'none';
-      currentStudentId = id; // 生徒IDを記録
-      document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('main-content').style.display = 'block';
-      
-      recordAccess(currentStudentId); // ポータルへのアクセスを記録
-    } catch (error) {
-      // 認証失敗（IDやパスワードが違う）
-      errorMsg.textContent = "IDまたはパスワードが間違っています";
-      errorMsg.style.display = 'block';
-      console.error("ログインエラー:", error);
-    }
-  });
-
-  // === 3. ポータルアクセス記録の送信関数 ===
-  async function recordAccess(studentId) {
-    try {
-      await addDoc(collection(db, "access_logs"), {
-        studentId: studentId,
-        subject: "My スタディ（ポータルホーム）",
-        accessedAt: serverTimestamp()
-      });
-      console.log("ポータルアクセスを記録しました:", studentId);
-    } catch (e) { console.error("アクセス記録エラー:", e); }
-  }
-
-  // === 4. 各教科や動画リンクをクリックした時の処理 ===
-  document.addEventListener('click', async (e) => {
-    const link = e.target.closest('a');
-    if (!link) return;
-
-    const href = link.getAttribute('href');
-    if (!href || href === '#') return;
-
-    e.preventDefault(); // 一旦移動をストップ
-
-    const linkText = link.textContent || "";
-    
-    // 【動画の場合】
-    if (linkText.includes("動画") || href.includes("shigaku-mystudy.com")) {
-      try {
-        await addDoc(collection(db, "learning_records"), {
-          studentId: currentStudentId || "ゲスト",
-          subject: "授業動画",
-          unit: "動画視聴",
-          questionId: "視聴開始",
-          action: "視聴",
-          correct: 1,
-          total: 1,
-          timestamp: serverTimestamp()
-        });
-        console.log("動画記録を送信しました");
-      } catch (error) { console.error("動画記録エラー:", error); }
-      
-      // 送信後、元のURLへ移動
-      if (link.getAttribute('target') === '_blank') {
-        window.open(href, '_blank');
-      } else {
-        window.location.href = href;
-      }
-    } 
-    // 【動画以外（国語・理科など）の場合】
-    else {
-      // 各教科のページへ生徒IDを引き継ぐためのURL書き換え
-      let targetUrl = href;
-      if (currentStudentId && !href.includes('student=')) {
-        const separator = href.includes('?') ? '&' : '?';
-        targetUrl = href + separator + "student=" + currentStudentId;
-      }
-      
-      if (link.getAttribute('target') === '_blank') {
-        window.open(targetUrl, '_blank');
-      } else {
-        window.location.href = targetUrl;
-      }
-    }
-  });
-</script>
-</body>
-</html>
