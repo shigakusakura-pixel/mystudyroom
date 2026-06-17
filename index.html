@@ -4,52 +4,34 @@
 <meta charset="UTF-8">
 <title>Shigaku — My Study Room</title>
 <style>
-  /* 以前のログイン画面とポータル画面のデザインを一括してここに記述します */
-  #login-screen { display: flex; }
-  #main-content { display: none; }
+  /* 以前のシンプルなログイン画面のデザイン */
+  body { display:flex; justify-content:center; align-items:center; height:100vh; background:#f7f8fb; }
+  .login-container { background:white; padding:20px; border-radius:8px; border:1px solid #ccc; }
+  input { padding:8px; margin-right:5px; border:1px solid #ccc; }
 </style>
 </head>
 <body>
 
-<div id="login-screen">
-  <input type="text" id="id-input" placeholder="ID">
-  <input type="password" id="pass-input" placeholder="パスワード">
-  <button id="login-btn">ログイン</button>
+<div class="login-container">
+  <input type="text" id="id" placeholder="ID">
+  <input type="password" id="pass" placeholder="パスワード">
+  <button onclick="checkLogin()">ログイン</button>
 </div>
 
-<div id="main-content">
-  <div id="personal-message-area">読み込み中...</div>
-  </div>
-
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
-  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
-
-  // ... (Firebase設定は既存のものを使用) ...
-
-  const auth = getAuth();
-
-  // ログイン後の処理
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('main-content').style.display = 'block';
-      
-      // データベースから個別のメッセージを取得して表示
-      const studentId = user.email.split('@')[0];
-      const docSnap = await getDoc(doc(db, "students", studentId));
-      if (docSnap.exists()) {
-        document.getElementById('personal-message-area').innerHTML = docSnap.data().message;
-      }
+<script>
+  // ここに以前設定していたIDとパスワードを記述します
+  // ※実際のID・パスワードはご自身でここに記入してください
+  function checkLogin() {
+    const id = document.getElementById('id').value;
+    const pass = document.getElementById('pass').value;
+    
+    // 先生が以前設定されていたIDとパスワードのペアを判定します
+    if (id === "shigaku" && pass === "1234") { 
+      window.location.href = "mystudyindex.html"; 
+    } else {
+      alert("IDまたはパスワードが違います");
     }
-  });
-
-  document.getElementById('login-btn').addEventListener('click', async () => {
-    const id = document.getElementById('id-input').value;
-    const pass = document.getElementById('pass-input').value;
-    await signInWithEmailAndPassword(auth, id + "@mystudy.dummy.com", pass);
-  });
+  }
 </script>
 </body>
 </html>
