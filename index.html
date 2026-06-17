@@ -122,7 +122,7 @@ body::before {
   font-size: 0.92rem;
   color: var(--sub);
   letter-spacing: 0.08em;
-  margin-top: 16px;
+  margin-bottom: 16px;
 }
 
 /* メッセージ枠 */
@@ -169,12 +169,12 @@ body::before {
 }
 
 .message-content {
-    color: #004098;          /* 真っ黒すぎない、視認性の高い濃いグレー */
-    font-weight: 600;        /* 文字を太くしてくっきりさせる */
-    line-height: 1.6;        /* 行間を広げて読みやすくする */
+    color: #004098;
+    font-weight: 600;
+    line-height: 1.6;
     padding: 15px;
-    font-size: 0.9em;        /* 少しだけ文字を大きくする */
-    background-color: #f9f9f9; /* 背景をわずかにグレーにすると文字が浮き立ちます */
+    font-size: 0.9em;
+    background-color: #f9f9f9;
 }
 
 /* カードのグリッドレイアウト */
@@ -300,7 +300,6 @@ body::before {
   line-height: 1.55;
 }
 
-/* ★不自然な改行を防ぐためのクラス */
 .nowrap {
   display: inline-block;
   white-space: nowrap;
@@ -400,7 +399,8 @@ body::before {
       <span class="card-badge badge-ready">● Ready</span>
       <div class="card-arrow">›</div>
     </a>
-  </div> <div class="section">
+  </div> 
+  <div class="section">
     <div class="section-label">English — 英語</div>
     <a class="card available" href="https://shigakusakura-pixel.github.io/tango/">
       <div class="card-icon">🌐</div>
@@ -480,10 +480,9 @@ body::before {
 
 </div>
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-  // Firebaseの設定
   const firebaseConfig = {
     apiKey: "AIzaSyBQjnlOfeVvWQJHDxGE9cq-jGsYF3uo0PY",
     authDomain: "mystudy-portal.firebaseapp.com",
@@ -492,67 +491,26 @@ body::before {
     messagingSenderId: "62253255474",
     appId: "1:62253255474:web:817a3cbd1ab3ea63e7e52b"
   };
-
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  // 1. URLから studentId を取得（指定がない場合は元の仕様通り「ゲスト」）
   const urlParams = new URLSearchParams(window.location.search);
   const studentId = urlParams.get('student') || 'ゲスト';
 
-  // 2. ポータルサイト自体のアクセスログ（access_logs へ送信）
-  try {
-    await addDoc(collection(db, "access_logs"), {
-      studentId: studentId,
-      subject: "My スタディ（ポータルホーム）",
-      accessedAt: serverTimestamp()
-    });
-    console.log("【My スタディ】ポータルへのアクセスを記録しました。");
-  } catch (e) {
-    console.error("ポータルログ送信エラー:", e);
-  }
-
-  // 3. リンクをクリックしたときの処理
-  document.addEventListener('click', async (e) => {
-    const link = e.target.closest('a');
-    if (!link) return;
-
-    const href = link.getAttribute('href');
-    if (!href || href === '#') return;
-
-    const linkText = link.textContent || "";
-
-    // 【重要】クリックされたのが「動画」に関するリンクの場合のみ、一旦止めてFirebaseに送信
-    if (linkText.includes("動画") || linkText.includes("Video") || href.includes("shigaku-mystudy.com")) {
-      e.preventDefault(); // 送信を待つために一時停止
-      
-      try {
-        // 元の仕様通りのフィールドで learning_records に保存
-        await addDoc(collection(db, "learning_records"), {
-          studentId: studentId,
-          subject: "授業動画",
-          unit: "動画視聴",
-          questionId: "視聴開始",
-          action: "視聴",
-          correct: 1,
-          total: 1,
-          timestamp: serverTimestamp()
-        });
-        console.log("【My スタディ】動画の視聴記録を learning_records に保存しました！");
-      } catch (error) {
-        console.error("動画学習記録の送信に失敗しました:", error);
-      }
-
-      // 送信完了後、HTMLに書かれている「元のURL」のまま移動（新タブ対応）
-      if (link.getAttribute('target') === '_blank') {
-        window.open(href, '_blank');
-      } else {
-        window.location.href = href;
-      }
-    }
-    // 動画以外のリンク（各教科など）は、上記の処理を通らないため、
-    // 元々のHTMLに書かれているURL・挙動のまま、100%完全にそのまま遷移します。
-  });
+  // タブを押したときに記録して移動する関数
+  window.logAndRedirect = async function(url) {
+    try {
+      await addDoc(collection(db, "learning_records"), {
+        studentId: studentId,
+        subject: "授業動画",
+        unit: "動画視聴",
+        questionId: "視聴開始",
+        action: "視聴",
+        timestamp: serverTimestamp()
+      });
+    } catch (e) { console.error(e); }
+    window.location.href = url; // 記録後にサイトへ移動
+  };
 </script>
 
 </body>
