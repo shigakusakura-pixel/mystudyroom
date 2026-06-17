@@ -11,14 +11,19 @@
   
   table { width: 100%; border-collapse: collapse; margin-top: 10px; }
   th, td { padding: 14px; text-align: left; border-bottom: 1px solid #e2e6ee; }
-  th { background-color: #1a2e4a; color: white; user-select: none; }
+  
+  /* ★変更箇所1：ヘッダーの背景をポータルと同じ青色に変更 */
+  th { background-color: #2963B1; color: white; user-select: none; }
   th.sortable { cursor: pointer; position: relative; }
-  th.sortable:hover { background-color: #2a4570; }
+  th.sortable:hover { background-color: #3572c0; }
   
   tr.student-row { cursor: pointer; transition: background-color 0.2s; }
   tr.student-row:hover { background-color: #eef2f7; }
   tr.zero-activity { background-color: #fff0f0; color: #c0392b; font-weight: bold; }
   tr.zero-activity:hover { background-color: #ffe4e4; }
+  
+  /* ★変更箇所2：生徒名を肉太から「スッキリ見やすい太さ」に調整 */
+  .student-name-text { font-weight: 600; font-size: 1.05em; color: #222; letter-spacing: 0.05em; }
   
   .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.85em; }
   .badge-alert { background: #e74c3c; color: white; }
@@ -103,7 +108,6 @@
       <button id="send-msg-btn" class="send-btn">送信する</button>
       <span id="msg-send-status" style="margin-left: 10px; font-size: 0.85em; color: #e74c3c;"></span>
     </div>
-
   </div>
 </div>
 
@@ -123,7 +127,6 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  // ★先生が新しく作成した名簿をセットしました！
   const STUDENT_RECORDS = {
     "student001@shigaku.local": "後田 莉乃葉",
     "teacher@shigaku.local": "日野 妙三",
@@ -163,7 +166,6 @@
         const sId = data.studentId;
         if (!studentMap[sId]) studentMap[sId] = { id: sId, count7: 0, count30: 0, lastActive: null, subjects: {} };
 
-        // ★安全装置：古い「文字データ」が来てもパニックにならないようにする
         let timestampObj = null;
         if (data.timestamp) {
             if (typeof data.timestamp.toDate === 'function') {
@@ -214,7 +216,8 @@
       const studentName = STUDENT_RECORDS[student.id] || student.id;
       const dateStr = student.lastActive ? student.lastActive.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---';
 
-      tr.innerHTML = `<td><strong>${studentName}</strong><span class="student-id-sub">${student.id}</span></td>
+      // ★ここが変更点：<strong>を外して、クラスを適用しました
+      tr.innerHTML = `<td><span class="student-name-text">${studentName}</span><span class="student-id-sub">${student.id}</span></td>
                       <td>${student.count7} 回</td><td>${student.count30} 回</td>
                       <td>${dateStr} ${student.count30 === 0 ? '<span class="badge badge-alert">未受講</span>' : ''}</td>`;
       
@@ -292,7 +295,6 @@
     } catch (e) {}
   }
 
-  // ★メッセージ送信処理
   document.getElementById('send-msg-btn').addEventListener('click', async () => {
     const msgInput = document.getElementById('teacher-msg-input');
     const statusText = document.getElementById('msg-send-status');
