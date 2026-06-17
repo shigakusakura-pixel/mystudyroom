@@ -11,8 +11,6 @@
   
   table { width: 100%; border-collapse: collapse; margin-top: 10px; }
   th, td { padding: 14px; text-align: left; border-bottom: 1px solid #e2e6ee; }
-  
-  /* ★変更箇所1：ヘッダーの背景をポータルと同じ青色に変更 */
   th { background-color: #2963B1; color: white; user-select: none; }
   th.sortable { cursor: pointer; position: relative; }
   th.sortable:hover { background-color: #3572c0; }
@@ -22,7 +20,6 @@
   tr.zero-activity { background-color: #fff0f0; color: #c0392b; font-weight: bold; }
   tr.zero-activity:hover { background-color: #ffe4e4; }
   
-  /* ★変更箇所2：生徒名を肉太から「スッキリ見やすい太さ」に調整 */
   .student-name-text { font-weight: 600; font-size: 1.05em; color: #222; letter-spacing: 0.05em; }
   
   .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.85em; }
@@ -48,7 +45,6 @@
   .recent-logs { font-size: 0.9em; max-height: 150px; overflow-y: auto; background: #fdfdfd; border: 1px solid #eee; padding: 10px; border-radius: 6px; }
   .recent-logs li { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed #ccc; list-style: none; }
   
-  /* メッセージ送信ボックスのスタイル */
   .message-box { margin-top: 20px; background: #eef2f7; padding: 15px; border-radius: 8px; border-left: 4px solid #3498db; }
   .message-box textarea { width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 8px; margin-bottom: 8px; resize: vertical; box-sizing: border-box; }
   .send-btn { background: #3498db; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
@@ -99,7 +95,7 @@
     <div id="modal-subjects-container" style="margin-bottom: 20px;"></div>
 
     <h4 style="margin: 10px 0 5px 0; font-size: 1em; color: #333;">📝 最近の学習履歴（最新5件）</h4>
-    <div id="modal-history-loading" style="font-size: 0.8em; color: #888;">履歴を読み込み中...</div>
+    <div id="modal-history-loading" style="font-size: 0.8em; color: #888; display: none;">履歴を読み込み中...</div>
     <div class="recent-logs"><ul id="modal-recent-list"></ul></div>
 
     <div class="message-box">
@@ -113,7 +109,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getFirestore, collection, query, where, orderBy, limit, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getFirestore, collection, query, where, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBQjnlOfeVvWQJHDxGE9cq-jGsYF3uo0PY",
@@ -146,6 +142,7 @@
   const REGISTERED_STUDENTS = Object.keys(STUDENT_RECORDS);
 
   let currentModalStudentId = ""; 
+  let allRecentRecords = []; // メモリ上に全履歴を保持して高速化
 
   async function loadAndAggregateData() {
     try {
@@ -156,6 +153,7 @@
       const q = query(collection(db, "learning_records"), where("timestamp", ">=", thirtyDaysAgo));
       const querySnapshot = await getDocs(q);
 
+      allRecentRecords = []; 
       const studentMap = {};
       REGISTERED_STUDENTS.forEach(id => {
         studentMap[id] = { id: id, count7: 0, count30: 0, lastActive: null, subjects: {} };
@@ -163,7 +161,21 @@
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        const sId = data.studentId;
+        allRecentRecords.push(data); // カルテ表示用に保存
+
+        let sId = data.studentId;
+
+        // ★修正箇所：今日の途中から発生した「IDの揺れ」を完全に統一・統合します
+        if (sId) {
+          if (sId === "ゲスト" || sId === "guest") {
+            sId = "guest";
+          } else if (!sId.includes('@')) {
+            sId = sId + '@shigaku.local'; // student001 を student001@shigaku.local に変換して合体
+          }
+        } else {
+          sId = "unknown";
+        }
+
         if (!studentMap[sId]) studentMap[sId] = { id: sId, count7: 0, count30: 0, lastActive: null, subjects: {} };
 
         let timestampObj = null;
@@ -216,7 +228,6 @@
       const studentName = STUDENT_RECORDS[student.id] || student.id;
       const dateStr = student.lastActive ? student.lastActive.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---';
 
-      // ★ここが変更点：<strong>を外して、クラスを適用しました
       tr.innerHTML = `<td><span class="student-name-text">${studentName}</span><span class="student-id-sub">${student.id}</span></td>
                       <td>${student.count7} 回</td><td>${student.count30} 回</td>
                       <td>${dateStr} ${student.count30 === 0 ? '<span class="badge badge-alert">未受講</span>' : ''}</td>`;
@@ -231,7 +242,7 @@
   closeBtn.onclick = () => modal.style.display = "none";
   window.onclick = (event) => { if (event.target == modal) modal.style.display = "none"; }
 
-  async function openStudentModal(student, studentName) {
+  function openStudentModal(student, studentName) {
     currentModalStudentId = student.id; 
     
     document.getElementById('modal-name').textContent = studentName;
@@ -269,18 +280,33 @@
     historyList.innerHTML = '';
     modal.style.display = "flex";
 
+    // ★修正箇所：旧IDと新IDの両方の履歴を統合して表示します
     try {
-      const q = query(collection(db, "learning_records"), where("studentId", "==", student.id), orderBy("timestamp", "desc"), limit(5));
-      const querySnapshot = await getDocs(q);
-      document.getElementById('modal-history-loading').style.display = 'none';
+      const shortId = student.id.includes('@') ? student.id.split('@')[0] : student.id;
 
-      if (querySnapshot.empty) {
+      // メモリ上の全記録から、該当生徒のものだけを旧形式・新形式問わず集める
+      const myRecords = allRecentRecords.filter(data => {
+         const sId = data.studentId;
+         if (!sId) return false;
+         return sId === student.id || sId === shortId || (student.id === "guest" && (sId === "ゲスト" || sId === "guest"));
+      });
+
+      // 日付が新しい順に並び替え
+      myRecords.sort((a, b) => {
+         let timeA = 0, timeB = 0;
+         if (a.timestamp) timeA = typeof a.timestamp.toDate === 'function' ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
+         if (b.timestamp) timeB = typeof b.timestamp.toDate === 'function' ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
+         return timeB - timeA;
+      });
+
+      const top5 = myRecords.slice(0, 5);
+
+      if (top5.length === 0) {
         historyList.innerHTML = '<li style="color:#888;">学習履歴がありません</li>';
         return;
       }
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        
+
+      top5.forEach((data) => {
         let dateObj = null;
         if (data.timestamp) {
             if (typeof data.timestamp.toDate === 'function') dateObj = data.timestamp.toDate();
@@ -292,7 +318,9 @@
         const unit = data.unit || '';
         historyList.innerHTML += `<li><span style="color:#666; font-size:0.9em; margin-right:10px;">${dateStr}</span> <strong>${subject}</strong> <br><span style="font-size:0.9em; color:#444;">${unit}</span></li>`;
       });
-    } catch (e) {}
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   document.getElementById('send-msg-btn').addEventListener('click', async () => {
