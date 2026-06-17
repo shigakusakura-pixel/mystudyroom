@@ -32,11 +32,21 @@ body {
   overflow-x: hidden;
 }
 
+/* ★追加：Firebaseの記憶を確認する間の「ローディング画面」 */
+#loading-screen {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+  background: radial-gradient(ellipse at center, #2a4570 0%, #1a2e4a 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 10000;
+  color: var(--white); font-family: 'Playfair Display', serif; font-size: 1.5rem;
+}
+
 /* === ログイン画面のスタイル === */
 #login-screen {
   position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
   background: radial-gradient(ellipse at center, #2a4570 0%, #1a2e4a 100%);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  display: none; /* ★修正：最初は必ず隠しておく（チラつき防止） */
+  flex-direction: column; align-items: center; justify-content: center;
   z-index: 9999;
 }
 .login-box {
@@ -80,21 +90,12 @@ body::before {
   border: 3px solid var(--gold-light); box-shadow: 0 4px 20px rgba(41,99,177,0.15), 0 0 0 1px rgba(212,173,62,0.2);
 }
 
-/* ★追加：ログアウトボタンのスタイル */
+/* ログアウトボタン */
 #logout-btn {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  color: #fff;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.2s;
-  z-index: 10;
+  position: absolute; top: 15px; right: 15px;
+  background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold;
+  cursor: pointer; transition: all 0.2s; z-index: 10;
 }
 #logout-btn:hover { background: rgba(255, 255, 255, 0.4); }
 
@@ -135,6 +136,10 @@ body::before {
 </style>
 </head>
 <body>
+
+<div id="loading-screen">
+  <h2>My Study Room</h2>
+</div>
 
 <div id="login-screen">
   <div class="login-box">
@@ -286,13 +291,18 @@ body::before {
 
   let currentStudentId = ""; 
 
-  // 1. ログイン状態の確認（ログインしていればポータルを表示）
+  // 1. ログイン状態の確認（★ここでチラつきを防ぎます）
   onAuthStateChanged(auth, (user) => {
+    // 記憶の確認が終わった瞬間に、ローディングの幕を外す
+    document.getElementById('loading-screen').style.display = 'none';
+
     if (user) {
+      // 記憶が残っていればポータル画面へ
       currentStudentId = user.email.split('@')[0];
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('main-content').style.display = 'block';
     } else {
+      // ログアウト状態ならログイン画面へ
       document.getElementById('login-screen').style.display = 'flex';
       document.getElementById('main-content').style.display = 'none';
     }
@@ -319,7 +329,7 @@ body::before {
       errorMsg.style.display = 'none';
       currentStudentId = id;
       
-      // 【復活箇所】ログイン成功時に画面を切り替える指示！
+      // ログイン成功時にポータル画面へ切り替え
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('main-content').style.display = 'block';
       
@@ -331,7 +341,7 @@ body::before {
     }
   });
 
-  // ログアウトボタンが押された時の処理
+  // 3. ログアウトボタンが押された時の処理
   const logoutBtn = document.getElementById('logout-btn');
   logoutBtn.addEventListener('click', async () => {
     try {
@@ -342,13 +352,13 @@ body::before {
       document.getElementById('pass-input').value = '';
       document.getElementById('login-error').style.display = 'none';
       
-      alert("ログアウトしました。");
+      alert("ログアウトしました。別のIDでログインできます。");
     } catch (error) {
       console.error("ログアウトエラー:", error);
     }
   });
 
-  // 3. ポータルアクセス記録の送信関数
+  // 4. ポータルアクセス記録の送信
   async function recordAccess(studentId) {
     try {
       await addDoc(collection(db, "access_logs"), {
@@ -359,7 +369,7 @@ body::before {
     } catch (e) { console.error("アクセス記録エラー:", e); }
   }
 
-  // 4. 各教科や動画リンクをクリックした時の処理
+  // 5. 各教科や動画リンクをクリックした時の処理
   document.addEventListener('click', async (e) => {
     const link = e.target.closest('a');
     if (!link) return;
@@ -371,6 +381,7 @@ body::before {
 
     const linkText = link.textContent || "";
     
+    // 【動画の場合】
     if (linkText.includes("動画") || href.includes("shigaku-mystudy.com")) {
       try {
         await addDoc(collection(db, "learning_records"), {
@@ -390,7 +401,9 @@ body::before {
       } else {
         window.location.href = href;
       }
-    } else {
+    } 
+    // 【動画以外の場合】
+    else {
       let targetUrl = href;
       if (currentStudentId && !href.includes('student=')) {
         const separator = href.includes('?') ? '&' : '?';
