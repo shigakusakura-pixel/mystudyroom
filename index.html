@@ -2,41 +2,54 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>My Study Room</title>
+<title>Shigaku — My Study Room</title>
+<style>
+  /* 以前のログイン画面とポータル画面のデザインを一括してここに記述します */
+  #login-screen { display: flex; }
+  #main-content { display: none; }
+</style>
 </head>
 <body>
-  <h1>My Study Room</h1>
-  <p>読み込み中...</p>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-    
-    const firebaseConfig = {
-      apiKey: "AIzaSyBQjnlOfeVvWQJHDxGE9cq-jGsYF3uo0PY",
-      authDomain: "mystudy-portal.firebaseapp.com",
-      projectId: "mystudy-portal",
-      storageBucket: "mystudy-portal.firebasestorage.app",
-      messagingSenderId: "62253255474",
-      appId: "1:62253255474:web:817a3cbd1ab3ea63e7e52b"
-    };
-    
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    
-    // ログイン処理を排除し、アクセスログだけを送るシンプルな状態
-    async function init() {
-      try {
-        await addDoc(collection(db, "access_logs"), {
-          studentId: "debug",
-          subject: "テストアクセス",
-          accessedAt: serverTimestamp()
-        });
-        document.body.innerHTML = "<h1>正常にFirebaseに接続できました</h1><p>ブラウザで正しく動作しています。</p>";
-      } catch (e) {
-        document.body.innerHTML = "<h1>エラーが発生しました</h1><p>" + e.message + "</p>";
+
+<div id="login-screen">
+  <input type="text" id="id-input" placeholder="ID">
+  <input type="password" id="pass-input" placeholder="パスワード">
+  <button id="login-btn">ログイン</button>
+</div>
+
+<div id="main-content">
+  <div id="personal-message-area">読み込み中...</div>
+  </div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+
+  // ... (Firebase設定は既存のものを使用) ...
+
+  const auth = getAuth();
+
+  // ログイン後の処理
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+      
+      // データベースから個別のメッセージを取得して表示
+      const studentId = user.email.split('@')[0];
+      const docSnap = await getDoc(doc(db, "students", studentId));
+      if (docSnap.exists()) {
+        document.getElementById('personal-message-area').innerHTML = docSnap.data().message;
       }
     }
-    init();
-  </script>
+  });
+
+  document.getElementById('login-btn').addEventListener('click', async () => {
+    const id = document.getElementById('id-input').value;
+    const pass = document.getElementById('pass-input').value;
+    await signInWithEmailAndPassword(auth, id + "@mystudy.dummy.com", pass);
+  });
+</script>
 </body>
 </html>
