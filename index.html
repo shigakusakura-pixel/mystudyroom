@@ -15,43 +15,41 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
 
-/* === 先生のデザイン案を完全再現したログイン枠 === */
+/* === 修正：上品なデザインと横幅のログイン枠 === */
 #login-wrapper {
-  margin-top: 10px;
-  animation: fadeUp 0.6s ease both;
+  display: flex; flex-direction: column; align-items: center;
+  margin-top: 20px; animation: fadeUp 0.6s ease both;
 }
-.red-input {
-  width: 100%;
-  background-color: #f33f48; /* 画像の鮮やかな赤色 */
-  color: #ffffff;
-  padding: 24px 20px;
-  border: none;
+.elegant-input {
+  width: 280px; /* ★横幅を短くスタイリッシュに */
+  padding: 16px 20px;
   border-radius: 8px;
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   font-weight: bold;
   margin-bottom: 12px;
-  box-shadow: 0 4px 10px rgba(243, 63, 72, 0.2);
+  transition: all 0.3s ease;
 }
-.red-input::placeholder { color: #ffffff; font-weight: bold; }
-.red-input:focus { outline: 3px solid rgba(243, 63, 72, 0.4); }
+/* ID用：上品な淡いブルー */
+.id-input {
+  background-color: #f4f7fb;
+  border: 1px solid #dbe4f0;
+  color: var(--navy);
+}
+.id-input:focus { outline: none; border-color: #a3c0e4; box-shadow: 0 0 0 3px rgba(163,192,228,0.2); }
+.id-input::placeholder { color: #8fa5c2; font-weight: normal; }
 
-.blue-input {
-  width: 100%;
-  background-color: #007aff; /* 画像の鮮やかな青色 */
-  color: #ffffff;
-  padding: 24px 20px;
-  border: none;
-  border-radius: 8px;
-  font-size: 1.3rem;
-  font-weight: bold;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 10px rgba(0, 122, 255, 0.2);
+/* パスワード用：上品な淡いゴールド（ベージュ） */
+.pass-input {
+  background-color: #fdfcf7;
+  border: 1px solid #f0eada;
+  color: var(--navy);
+  margin-bottom: 24px;
 }
-.blue-input::placeholder { color: #ffffff; font-weight: bold; }
-.blue-input:focus { outline: 3px solid rgba(0, 122, 255, 0.4); }
+.pass-input:focus { outline: none; border-color: var(--gold-light); box-shadow: 0 0 0 3px rgba(212,173,62,0.15); }
+.pass-input::placeholder { color: #c5b89a; font-weight: normal; }
 
 .login-submit-btn {
-  width: 100%;
+  width: 280px; /* ★ボタンも入力欄と幅を統一 */
   padding: 16px;
   background: linear-gradient(135deg, var(--gold-light), var(--gold));
   color: #fff;
@@ -60,10 +58,10 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
   font-size: 1.1rem;
   font-weight: bold;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(180,148,46,0.3);
+  box-shadow: 0 4px 12px rgba(180,148,46,0.2);
   transition: transform 0.2s;
 }
-.login-submit-btn:hover { transform: translateY(-2px); }
+.login-submit-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(180,148,46,0.3); }
 #login-error { color: #d32f2f; font-size: 0.95rem; text-align: center; margin-top: 15px; display: none; font-weight: bold; }
 
 /* === 既存のポータルスタイル === */
@@ -71,7 +69,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 .container { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; padding: 40px 20px 60px; }
 .header { text-align: center; margin-bottom: 32px; }
 .header-top { background: linear-gradient(135deg, #2963B1, #3572c0); border-radius: 20px; padding: 36px 24px 32px; margin-bottom: 20px; position: relative; overflow: hidden; border: 3px solid var(--gold-light); }
-#logout-btn { position: absolute; top: 15px; right: 15px; background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.5); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; z-index: 10; display: none; /* 初期は非表示 */ }
+#logout-btn { position: absolute; top: 15px; right: 15px; background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.5); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; z-index: 10; display: none; }
 #logout-btn:hover { background: rgba(255, 255, 255, 0.4); }
 .header .school-name { font-family: 'Playfair Display', serif; font-size: clamp(1.7rem, 7.5vw, 3.2rem); font-weight: 900; background: linear-gradient(135deg, #d4ad3e, #f0d060, #d4ad3e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 .header .room-name { font-family: 'Playfair Display', serif; font-size: clamp(1.1rem, 4.5vw, 1.5rem); color: #ffffff; letter-spacing: 0.22em; margin-top: 0; }
@@ -82,12 +80,14 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 .message-title { font-weight: 700; color: var(--gold); }
 .contact-info { font-size: 0.75rem; color: var(--accent-green); font-weight: 500; }
 .message-content { color: #004098; font-weight: 600; line-height: 1.6; padding: 15px; font-size: 0.9em; background-color: #f9f9f9; }
-.card-grid { display: grid; grid-template-columns: 1fr; gap: 24px 20px; animation: fadeUp 0.8s ease both; }
+
+/* === ★修正：カードの高さ崩れを自動で揃える === */
+.card-grid { display: grid; grid-template-columns: 1fr; gap: 24px 20px; animation: fadeUp 0.8s ease both; align-items: stretch; }
 @media (min-width: 768px) { .container { max-width: 880px; } .card-grid { grid-template-columns: repeat(2, 1fr); } }
-.section { display: flex; flex-direction: column; }
+.section { display: flex; flex-direction: column; height: 100%; } /* コンテナの高さを確保 */
 .section-label { font-size: 0.78rem; letter-spacing: 0.2em; color: var(--gold); font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
 .section-label::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border), transparent); }
-.card { display: flex; align-items: center; gap: 16px; background: var(--white); border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px; text-decoration: none; color: var(--text); box-shadow: 0 2px 12px var(--card-shadow); transition: transform 0.2s; }
+.card { display: flex; align-items: center; gap: 16px; background: var(--white); border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px; text-decoration: none; color: var(--text); box-shadow: 0 2px 12px var(--card-shadow); transition: transform 0.2s; flex: 1; } /* ★flex: 1で空きスペースを自動で埋めて高さを揃える */
 .card-icon { font-size: 1.8rem; width: 56px; height: 56px; border-radius: 14px; background: #faf6eb; border: 1px solid rgba(180,148,46,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .card-body { flex: 1; }
 .card-title { font-size: 1.15rem; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
@@ -120,8 +120,8 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
   </div>
 
   <div id="login-wrapper" style="display: none;">
-    <input type="text" id="id-input" placeholder="ID" class="red-input">
-    <input type="password" id="pass-input" placeholder="PssWord" class="blue-input">
+    <input type="text" id="id-input" placeholder="ID" class="elegant-input id-input">
+    <input type="password" id="pass-input" placeholder="PssWord" class="elegant-input pass-input">
     <button id="login-btn" class="login-submit-btn">ログインして学習を始める</button>
     <div id="login-error">IDまたはパスワードが間違っています</div>
   </div>
@@ -148,7 +148,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 </div>
 
 <script type="module">
-  // ★認証機能やメッセージ表示のシステム部分は、先ほど成功した全く同じものを採用しています
+  // 裏側の認証システムは、先ほど無事にログイン成功したコードのままです
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getFirestore, collection, doc, getDoc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -197,7 +197,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     } else {
       document.getElementById('portal-content').style.display = 'none';
       document.getElementById('logout-btn').style.display = 'none'; 
-      document.getElementById('login-wrapper').style.display = 'block';
+      document.getElementById('login-wrapper').style.display = 'flex';
     }
   });
 
