@@ -496,11 +496,11 @@ body::before {
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  // 1. URLから studentId を取得（「ゲスト」ではなく厳密に取得します）
+  // 1. URLから studentId を取得
   const urlParams = new URLSearchParams(window.location.search);
   const studentId = urlParams.get('student');
 
-  // 2. ポータルサイト自体のアクセスログ
+  // 2. ポータルサイト自体のアクセスログ（こちらは access_logs へ送信）
   if (studentId) {
     try {
       await addDoc(collection(db, "access_logs"), {
@@ -516,14 +516,13 @@ body::before {
 
   // 3. リンク（動画タブや各教科）をクリックしたときの自動処理
   document.addEventListener('click', async (e) => {
-    // クリックされたのが <a> タグ（リンク）かどうかをチェック
     const link = e.target.closest('a');
     if (!link) return;
 
     const href = link.getAttribute('href');
-    if (!href || href === '#' || href.startsWith('http')) return; // 外部リンクなどは無視
+    if (!href || href === '#' || href.startsWith('http')) return;
 
-    // リンク移動を一旦ストップして、裏側で処理を行う
+    // リンク移動を一旦ストップして、裏側でFirebaseへの送信を行う
     e.preventDefault();
 
     // 次のページに studentId を引き継ぐためのURLを作成
@@ -535,25 +534,27 @@ body::before {
 
     const linkText = link.textContent || "";
 
-    // もしクリックされたのが「動画」タブだったら
+    // 【修正箇所】もしクリックされたのが「動画」に関するタブやリンクだったら
     if (linkText.includes("動画") || linkText.includes("Video") || href.includes("video")) {
       if (studentId) {
         try {
-          // 動画のクリック記録を送信
-          await addDoc(collection(db, "access_logs"), {
+          // learning_records コレクションに学習記録として送信
+          await addDoc(collection(db, "learning_records"), {
             studentId: studentId,
-            subject: "授業動画",
-            action: "視聴開始",
-            accessedAt: serverTimestamp()
+            subject: "授業動画",     // 教科名にあたる部分
+            unit: "動画視聴開始",    // 単元名にあたる部分
+            correct: 1,             // 管理画面の集計エラーを防ぐため1/1形式で送信
+            total: 1,
+            timestamp: serverTimestamp() // learning_recordsの仕様に合わせてtimestampに
           });
-          console.log("【My スタディ】動画タブのクリックを記録しました！");
+          console.log("【My スタディ】動画の視聴記録を learning_records に保存しました！");
         } catch (error) {
-          console.error("動画ログ送信エラー:", error);
+          console.error("動画学習記録の送信に失敗しました:", error);
         }
       }
     }
 
-    // ログ送信が終わったら（または動画以外ならすぐに）、目的のページへ移動！
+    // 記録の送信が終わったら（または動画以外ならすぐに）、目的のページへ移動
     window.location.href = targetUrl;
   });
 </script>
