@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -32,339 +32,112 @@ body {
   overflow-x: hidden;
 }
 
-/* 背景装飾 */
+/* === 追加：ログイン画面のスタイル === */
+#login-screen {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+  background: radial-gradient(ellipse at center, #2a4570 0%, #1a2e4a 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 9999;
+}
+.login-box {
+  background: var(--white); padding: 40px 30px; border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center;
+  border-top: 5px solid var(--gold); width: 90%; max-width: 400px;
+  animation: fadeUp 0.6s ease both;
+}
+.login-box h2 {
+  color: var(--navy); font-family: 'Playfair Display', serif; margin-bottom: 5px; font-size: 1.8rem;
+}
+.login-box p { color: var(--sub); font-size: 0.9rem; margin-bottom: 25px; font-weight: bold; }
+.input-group { margin-bottom: 15px; text-align: left; }
+.input-group label { display: block; font-size: 0.8rem; color: var(--navy); margin-bottom: 5px; font-weight: bold; }
+.input-group input {
+  width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 1rem; background: #f9f9f9; transition: border 0.3s;
+}
+.input-group input:focus { border-color: var(--gold); outline: none; background: #fff; }
+.login-box button {
+  width: 100%; padding: 14px; background: linear-gradient(135deg, #d4ad3e, #b8942e);
+  color: #fff; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold;
+  cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; margin-top: 10px;
+}
+.login-box button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(180,148,46,0.3); }
+#login-error { color: #e74c3c; font-size: 0.85rem; margin-top: 15px; font-weight: bold; display: none; }
+#main-content { display: none; }
+
+/* === 既存のポータルスタイル === */
 body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(ellipse at 15% 0%, rgba(180,148,46,0.06) 0%, transparent 50%),
-    radial-gradient(ellipse at 85% 100%, rgba(26,46,74,0.04) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
+  content: ''; position: fixed; inset: 0;
+  background: radial-gradient(ellipse at 15% 0%, rgba(180,148,46,0.06) 0%, transparent 50%),
+              radial-gradient(ellipse at 85% 100%, rgba(26,46,74,0.04) 0%, transparent 50%);
+  pointer-events: none; z-index: 0;
 }
-
-.container {
-  position: relative;
-  z-index: 1;
-  max-width: 680px;
-  margin: 0 auto;
-  padding: 40px 20px 60px;
-  transition: max-width 0.3s ease;
-}
-
-/* ヘッダー */
-.header {
-  text-align: center;
-  margin-bottom: 32px;
-  animation: fadeDown 0.8s ease both;
-}
-
+.container { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; padding: 40px 20px 60px; }
+.header { text-align: center; margin-bottom: 32px; animation: fadeDown 0.8s ease both; }
 .header-top {
-  background: linear-gradient(135deg, #2963B1, #3572c0);
-  border-radius: 20px;
-  padding: 36px 24px 32px;
-  margin-bottom: 20px;
-  position: relative;
-  overflow: hidden;
-  border: 3px solid var(--gold-light);
-  box-shadow: 0 4px 20px rgba(41,99,177,0.15), 0 0 0 1px rgba(212,173,62,0.2);
+  background: linear-gradient(135deg, #2963B1, #3572c0); border-radius: 20px;
+  padding: 36px 24px 32px; margin-bottom: 20px; position: relative; overflow: hidden;
+  border: 3px solid var(--gold-light); box-shadow: 0 4px 20px rgba(41,99,177,0.15), 0 0 0 1px rgba(212,173,62,0.2);
 }
-
-.header-top::before {
-  content: '';
-  position: absolute;
-  top: -30%;
-  right: -20%;
-  width: 200px;
-  height: 200px;
-  background: radial-gradient(circle, rgba(180,148,46,0.15) 0%, transparent 70%);
-  pointer-events: none;
-}
-
-.header-top::after {
-  content: '';
-  position: absolute;
-  bottom: -20%;
-  left: -10%;
-  width: 160px;
-  height: 160px;
-  background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
-  pointer-events: none;
-}
-
 .header .school-name {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(1.7rem, 7.5vw, 3.2rem);
-  font-weight: 900;
-  letter-spacing: 0.02em;
+  font-family: 'Playfair Display', serif; font-size: clamp(1.7rem, 7.5vw, 3.2rem); font-weight: 900;
   background: linear-gradient(135deg, #d4ad3e, #f0d060, #d4ad3e);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  line-height: 1.3;
-  position: relative;
-  padding: 0 4px 0.15em;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
-
-.header .room-name {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(1.1rem, 4.5vw, 1.5rem);
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  color: #ffffff;
-  margin-top: 0;
-  text-transform: uppercase;
-  position: relative;
-}
-
-.header .subtitle {
-  font-size: 0.92rem;
-  color: var(--sub);
-  letter-spacing: 0.08em;
-  margin-bottom: 16px;
-}
-
-/* メッセージ枠 */
-.message-box {
-  background: var(--white);
-  border-left: 5px solid var(--gold-light);
-  border-radius: 12px;
-  padding: 20px 24px;
-  margin-bottom: 40px;
-  box-shadow: 0 4px 16px var(--card-shadow);
-  animation: fadeUp 0.8s 0.1s ease both;
-  position: relative;
-}
-
-.message-box::before {
-  content: '📢';
-  font-size: 1.2rem;
-  position: absolute;
-  top: 18px;
-  left: 16px;
-}
-
-.message-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
-  padding-left: 28px;
-  gap: 10px;
-}
-
-.message-title {
-  font-weight: 700;
-  color: var(--gold);
-  font-size: 1.05rem;
-  letter-spacing: 0.05em;
-}
-
-.contact-info {
-  font-size: 0.75rem;
-  color: var(--accent-green);
-  font-weight: 500;
-}
-
-.message-content {
-    color: #004098;
-    font-weight: 600;
-    line-height: 1.6;
-    padding: 15px;
-    font-size: 0.9em;
-    background-color: #f9f9f9;
-}
-
-/* カードのグリッドレイアウト */
-.card-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 24px 20px;
-}
-
-@media (min-width: 768px) {
-  .container {
-    max-width: 880px;
-  }
-  .card-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.section {
-  display: flex;
-  flex-direction: column;
-  animation: fadeUp 0.8s ease both;
-}
-
-.card-grid .section:nth-child(1) { animation-delay: 0.15s; }
-.card-grid .section:nth-child(2) { animation-delay: 0.2s; }
-.card-grid .section:nth-child(3) { animation-delay: 0.25s; }
-.card-grid .section:nth-child(4) { animation-delay: 0.3s; }
-.card-grid .section:nth-child(5) { animation-delay: 0.35s; }
-.card-grid .section:nth-child(6) { animation-delay: 0.4s; }
-
-.section-label {
-  font-size: 0.78rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--gold);
-  font-weight: 700;
-  margin-bottom: 10px;
-  padding-left: 2px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.section-label::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, var(--border), transparent);
-}
-
-.card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 20px 22px;
-  text-decoration: none;
-  color: var(--text);
-  transition: all 0.25s ease;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 2px 12px var(--card-shadow);
-  flex: 1;
-}
-
-.card::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: linear-gradient(180deg, var(--gold), var(--gold-light));
-  opacity: 0;
-  transition: opacity 0.25s;
-}
-
-.card:hover::before { opacity: 1; }
-.card:hover {
-  border-color: var(--gold-light);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(26,46,74,0.1), 0 2px 8px rgba(180,148,46,0.08);
-}
-
-.card-icon {
-  font-size: 1.8rem;
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  background: var(--gold-bg);
-  border: 1px solid rgba(180,148,46,0.15);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
+.header .room-name { font-family: 'Playfair Display', serif; font-size: clamp(1.1rem, 4.5vw, 1.5rem); color: #ffffff; letter-spacing: 0.22em; margin-top: 0; }
+.header .subtitle { font-size: 0.92rem; color: var(--sub); letter-spacing: 0.08em; margin-bottom: 16px; }
+.message-box { background: var(--white); border-left: 5px solid var(--gold-light); border-radius: 12px; padding: 20px 24px; margin-bottom: 40px; box-shadow: 0 4px 16px var(--card-shadow); animation: fadeUp 0.8s 0.1s ease both; position: relative; }
+.message-box::before { content: '📢'; font-size: 1.2rem; position: absolute; top: 18px; left: 16px; }
+.message-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; padding-left: 28px; }
+.message-title { font-weight: 700; color: var(--gold); }
+.contact-info { font-size: 0.75rem; color: var(--accent-green); font-weight: 500; }
+.message-content { color: #004098; font-weight: 600; line-height: 1.6; padding: 15px; font-size: 0.9em; background-color: #f9f9f9; }
+.card-grid { display: grid; grid-template-columns: 1fr; gap: 24px 20px; }
+@media (min-width: 768px) { .container { max-width: 880px; } .card-grid { grid-template-columns: repeat(2, 1fr); } }
+.section { display: flex; flex-direction: column; animation: fadeUp 0.8s ease both; }
+.section-label { font-size: 0.78rem; letter-spacing: 0.2em; color: var(--gold); font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+.section-label::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border), transparent); }
+.card { display: flex; align-items: center; gap: 16px; background: var(--white); border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px; text-decoration: none; color: var(--text); transition: all 0.25s ease; box-shadow: 0 2px 12px var(--card-shadow); }
+.card:hover { border-color: var(--gold-light); transform: translateY(-2px); }
+.card-icon { font-size: 1.8rem; width: 56px; height: 56px; border-radius: 14px; background: var(--gold-bg); border: 1px solid rgba(180,148,46,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .card-body { flex: 1; }
-
-.card-title {
-  font-size: 1.15rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  margin-bottom: 3px;
-  color: var(--navy);
-}
-
-.card-title-en {
-  font-family: 'Playfair Display', serif;
-  font-size: 0.8rem;
-  color: var(--gold);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.card-desc {
-  font-size: 0.82rem;
-  color: var(--sub);
-  margin-top: 5px;
-  line-height: 1.55;
-}
-
-.nowrap {
-  display: inline-block;
-  white-space: nowrap;
-}
-
-.card-badge {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  padding: 4px 10px;
-  border-radius: 20px;
-  white-space: nowrap;
-}
-.badge-ready {
-  background: #edf8f0;
-  color: #2a9d5c;
-  border: 1px solid #c4ebd0;
-}
-.badge-soon {
-  background: var(--gold-bg);
-  color: var(--gold);
-  border: 1px solid rgba(180,148,46,0.25);
-}
-
-.card-arrow {
-  color: var(--gold);
-  font-size: 1.4rem;
-  transition: transform 0.2s;
-  opacity: 0.6;
-  font-weight: 700;
-}
-
-.card.coming-soon {
-  opacity: 0.5;
-  cursor: default;
-}
-
-/* フッター */
-.footer {
-  text-align: center;
-  margin-top: 48px;
-  padding-top: 24px;
-  border-top: 1px solid var(--border);
-  animation: fadeUp 0.8s 0.6s ease both;
-}
-.footer p {
-  font-size: 0.78rem;
-  color: var(--sub);
-  letter-spacing: 0.08em;
-}
+.card-title { font-size: 1.15rem; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
+.card-title-en { font-family: 'Playfair Display', serif; font-size: 0.8rem; color: var(--gold); }
+.card-desc { font-size: 0.82rem; color: var(--sub); margin-top: 5px; line-height: 1.55; }
+.nowrap { display: inline-block; white-space: nowrap; }
+.card-badge { font-size: 0.7rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+.badge-ready { background: #edf8f0; color: #2a9d5c; border: 1px solid #c4ebd0; }
+.card-arrow { color: var(--gold); font-size: 1.4rem; font-weight: 700; opacity: 0.6; }
+.footer { text-align: center; margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); animation: fadeUp 0.8s 0.6s ease both; }
+.footer p { font-size: 0.78rem; color: var(--sub); }
 .footer .gold { color: var(--gold); font-weight: 700; }
-
-@keyframes fadeDown {
-  from { opacity: 0; transform: translateY(-20px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+@keyframes fadeDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 </head>
 <body>
-<div class="container">
 
+<div id="login-screen">
+  <div class="login-box">
+    <h2>My Study Room</h2>
+    <p>志学ゼミナール生 専用ログイン</p>
+    
+    <div class="input-group">
+      <label>ログインID</label>
+      <input type="text" id="id-input" placeholder="IDを入力してください">
+    </div>
+    
+    <div class="input-group">
+      <label>パスワード</label>
+      <input type="password" id="pass-input" placeholder="パスワードを入力してください">
+    </div>
+
+    <button id="login-btn">ログインして学習を始める</button>
+    <p id="login-error">IDまたはパスワードが間違っています</p>
+  </div>
+</div>
+
+<div class="container" id="main-content">
   <div class="header">
     <div class="header-top">
       <div class="school-name">Shigaku Seminar</div>
@@ -386,66 +159,61 @@ body::before {
   </div>
 
   <div class="card-grid">
-
-  <div class="section">
-    <div class="section-label">Online learning — 解説動画</div>
-    <a class="card available" href="https://shigaku-mystudy.com" target="_blank">
-      <div class="card-icon">🎞️</div>
-      <div class="card-body">
-        <div class="card-title">学習解説動画</div>
-        <div class="card-title-en">Shigaku Online Learning</div>
-        <div class="card-desc"><span class="nowrap">英･数･社･理･国｜</span><span class="nowrap">解説動画で学ぼう!</span></div>
-      </div>
-      <span class="card-badge badge-ready">● Ready</span>
-      <div class="card-arrow">›</div>
-    </a>
-  </div> 
-  <div class="section">
-    <div class="section-label">English — 英語</div>
-    <a class="card available" href="https://shigakusakura-pixel.github.io/tango/">
-      <div class="card-icon">🌐</div>
-      <div class="card-body">
-        <div class="card-title">中学英単語＆英文法</div>
-        <div class="card-title-en">Junior High — Vocabulary ＆ Grammar</div>
-                   <div class="card-desc"><span class="nowrap">New Horizon 教科書準拠 英単語</span> 
-            <span class="nowrap">英文法完全マスター/全41単元 400問</span></div>
-            </div>
-              <span class="card-badge badge-ready">● Ready</span>
-      <div class="card-arrow">›</div>
-    </a>
-  </div>
-
-  <div class="section">
-    <div class="section-label">Mathematics — 数学</div>
-    <a class="card available" href="https://shigakusakura-pixel.github.io/sugaku/">
-      <div class="card-icon">📐</div>
-      <div class="card-body">
-        <div class="card-title">中学数学 一問一答</div>
-        <div class="card-title-en">Junior High — Mathematics</div>
-        <div class="card-desc"><span class="nowrap">計算・図形・関数・データ｜</span><span class="nowrap">単元数23 全427問</span></div>
-      </div>
-      <span class="card-badge badge-ready">● Ready</span>
-      <div class="card-arrow">›</div>
-    </a>
-  </div>
-
-  <div class="section">
-    <div class="section-label">Social Studies — 社会</div>
-    <a class="card available" href="https://shigakusakura-pixel.github.io/syakai/">
-      <div class="card-icon">📚</div>
-      <div class="card-body">
-        <div class="card-title">中学社会 一問一答</div>
-        <div class="card-title-en">Junior High — Social Studies</div>
-        <div class="card-desc"><span class="nowrap">地理・歴史・公民｜</span><span class="nowrap">穴埋めチャレンジ 全480問</span></div>
-      </div>
-      <span class="card-badge badge-ready">● Ready</span>
-      <div class="card-arrow">›</div>
-    </a>
-  </div>
-
+    <div class="section">
+      <div class="section-label">Online learning — 解説動画</div>
+      <a class="card" href="https://shigaku-mystudy.com" target="_blank">
+        <div class="card-icon">🎞️</div>
+        <div class="card-body">
+          <div class="card-title">学習解説動画</div>
+          <div class="card-title-en">Shigaku Online Learning</div>
+          <div class="card-desc"><span class="nowrap">英･数･社･理･国｜</span><span class="nowrap">解説動画で学ぼう!</span></div>
+        </div>
+        <span class="card-badge badge-ready">● Ready</span>
+        <div class="card-arrow">›</div>
+      </a>
+    </div> 
+    <div class="section">
+      <div class="section-label">English — 英語</div>
+      <a class="card" href="https://shigakusakura-pixel.github.io/tango/">
+        <div class="card-icon">🌐</div>
+        <div class="card-body">
+          <div class="card-title">中学英単語＆英文法</div>
+          <div class="card-title-en">Junior High — Vocabulary ＆ Grammar</div>
+          <div class="card-desc"><span class="nowrap">New Horizon 教科書準拠 英単語</span> <span class="nowrap">英文法完全マスター/全41単元 400問</span></div>
+        </div>
+        <span class="card-badge badge-ready">● Ready</span>
+        <div class="card-arrow">›</div>
+      </a>
+    </div>
+    <div class="section">
+      <div class="section-label">Mathematics — 数学</div>
+      <a class="card" href="https://shigakusakura-pixel.github.io/sugaku/">
+        <div class="card-icon">📐</div>
+        <div class="card-body">
+          <div class="card-title">中学数学 一問一答</div>
+          <div class="card-title-en">Junior High — Mathematics</div>
+          <div class="card-desc"><span class="nowrap">計算・図形・関数・データ｜</span><span class="nowrap">単元数23 全427問</span></div>
+        </div>
+        <span class="card-badge badge-ready">● Ready</span>
+        <div class="card-arrow">›</div>
+      </a>
+    </div>
+    <div class="section">
+      <div class="section-label">Social Studies — 社会</div>
+      <a class="card" href="https://shigakusakura-pixel.github.io/syakai/">
+        <div class="card-icon">📚</div>
+        <div class="card-body">
+          <div class="card-title">中学社会 一問一答</div>
+          <div class="card-title-en">Junior High — Social Studies</div>
+          <div class="card-desc"><span class="nowrap">地理・歴史・公民｜</span><span class="nowrap">穴埋めチャレンジ 全480問</span></div>
+        </div>
+        <span class="card-badge badge-ready">● Ready</span>
+        <div class="card-arrow">›</div>
+      </a>
+    </div>
     <div class="section">
       <div class="section-label">Science — 理科</div>
-      <a class="card available" href="https://shigakusakura-pixel.github.io/rika/">
+      <a class="card" href="https://shigakusakura-pixel.github.io/rika/">
         <div class="card-icon">🔬</div>
         <div class="card-body">
           <div class="card-title">中学理科 一問一答</div>
@@ -456,10 +224,9 @@ body::before {
         <div class="card-arrow">›</div>
       </a>
     </div>
-
     <div class="section">
       <div class="section-label">Japanese — 国語</div>
-       <a class="card available" href="https://shigakusakura-pixel.github.io/kokugo/">
+       <a class="card" href="https://shigakusakura-pixel.github.io/kokugo/">
         <div class="card-icon">📖</div>
         <div class="card-body">
           <div class="card-title">中学国語 一問一答</div>
@@ -470,27 +237,147 @@ body::before {
        <div class="card-arrow">›</div>
       </a>
     </div>
-
   </div>
 
   <div class="footer">
     <p>© <span class="gold">Shigaku Seminar</span> — All Rights Reserved</p>
     <p style="margin-top:4px;">志学ゼミナール｜My Study Room</p>
   </div>
-
 </div>
+
 <script type="module">
-  // ＝＝＝ 応急処置：ここから ＝＝＝
-  const PASS = "shigaku"; // ←ここに設定したいパスワードを入れてください
-  const input = prompt("【My スタディ】パスワードを入力してください");
-  if (input !== PASS) {
-    document.body.innerHTML = "<h2 style='text-align:center; margin-top:50px; color:#1a2e4a;'>パスワードが違います。<br>ページを再読み込みしてやり直してください。</h2>";
-    throw new Error("パスワード不一致"); // 画面を隠してプログラムを停止します
+  // Firebaseモジュールの読み込み（認証機能 "firebase-auth.js" を追加）
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+
+  // Firebaseの設定
+  const firebaseConfig = {
+    apiKey: "AIzaSyBQjnlOfeVvWQJHDxGE9cq-jGsYF3uo0PY",
+    authDomain: "mystudy-portal.firebaseapp.com",
+    projectId: "mystudy-portal",
+    storageBucket: "mystudy-portal.firebasestorage.app",
+    messagingSenderId: "62253255474",
+    appId: "1:62253255474:web:817a3cbd1ab3ea63e7e52b"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+
+  let currentStudentId = ""; // ログインした生徒のIDを保持する変数
+
+  // === 1. ログイン済みの場合はそのまま画面を表示 ===
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      // ログイン成功している場合
+      currentStudentId = user.email.split('@')[0]; // メールアドレスの@より前をIDとして使用
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+      recordAccess(currentStudentId);
+    }
+  });
+
+  // === 2. ログインボタンが押された時の処理 ===
+  const loginBtn = document.getElementById('login-btn');
+  loginBtn.addEventListener('click', async () => {
+    const id = document.getElementById('id-input').value.trim();
+    const pass = document.getElementById('pass-input').value.trim();
+    const errorMsg = document.getElementById('login-error');
+    
+    if (!id || !pass) {
+      errorMsg.textContent = "IDとパスワードを入力してください";
+      errorMsg.style.display = 'block';
+      return;
+    }
+
+    // ★重要: Firebase Authは「メールアドレス」の形式が必要なため、
+    // 入力されたIDの末尾にダミーのドメインを自動で補って認証します。
+    // （もしFirebaseコンソールに普通のアドレスで登録している場合は、@以降も入力させればOKです）
+    const loginEmail = id.includes('@') ? id : `${id}@mystudy.dummy.com`;
+
+    try {
+      // Firebaseにログイン要求を送信
+      const userCredential = await signInWithEmailAndPassword(auth, loginEmail, pass);
+      
+      // 認証成功！
+      errorMsg.style.display = 'none';
+      currentStudentId = id; // 生徒IDを記録
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+      
+      recordAccess(currentStudentId); // ポータルへのアクセスを記録
+    } catch (error) {
+      // 認証失敗（IDやパスワードが違う）
+      errorMsg.textContent = "IDまたはパスワードが間違っています";
+      errorMsg.style.display = 'block';
+      console.error("ログインエラー:", error);
+    }
+  });
+
+  // === 3. ポータルアクセス記録の送信関数 ===
+  async function recordAccess(studentId) {
+    try {
+      await addDoc(collection(db, "access_logs"), {
+        studentId: studentId,
+        subject: "My スタディ（ポータルホーム）",
+        accessedAt: serverTimestamp()
+      });
+      console.log("ポータルアクセスを記録しました:", studentId);
+    } catch (e) { console.error("アクセス記録エラー:", e); }
   }
-  // ＝＝＝ 応急処置：ここまで ＝＝＝
 
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  // ...（以下、元のコードが続きます）
+  // === 4. 各教科や動画リンクをクリックした時の処理 ===
+  document.addEventListener('click', async (e) => {
+    const link = e.target.closest('a');
+    if (!link) return;
 
+    const href = link.getAttribute('href');
+    if (!href || href === '#') return;
+
+    e.preventDefault(); // 一旦移動をストップ
+
+    const linkText = link.textContent || "";
+    
+    // 【動画の場合】
+    if (linkText.includes("動画") || href.includes("shigaku-mystudy.com")) {
+      try {
+        await addDoc(collection(db, "learning_records"), {
+          studentId: currentStudentId || "ゲスト",
+          subject: "授業動画",
+          unit: "動画視聴",
+          questionId: "視聴開始",
+          action: "視聴",
+          correct: 1,
+          total: 1,
+          timestamp: serverTimestamp()
+        });
+        console.log("動画記録を送信しました");
+      } catch (error) { console.error("動画記録エラー:", error); }
+      
+      // 送信後、元のURLへ移動
+      if (link.getAttribute('target') === '_blank') {
+        window.open(href, '_blank');
+      } else {
+        window.location.href = href;
+      }
+    } 
+    // 【動画以外（国語・理科など）の場合】
+    else {
+      // 各教科のページへ生徒IDを引き継ぐためのURL書き換え
+      let targetUrl = href;
+      if (currentStudentId && !href.includes('student=')) {
+        const separator = href.includes('?') ? '&' : '?';
+        targetUrl = href + separator + "student=" + currentStudentId;
+      }
+      
+      if (link.getAttribute('target') === '_blank') {
+        window.open(targetUrl, '_blank');
+      } else {
+        window.location.href = targetUrl;
+      }
+    }
+  });
+</script>
 </body>
 </html>
