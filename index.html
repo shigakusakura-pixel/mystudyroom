@@ -496,65 +496,62 @@ body::before {
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  // 1. URLから studentId を取得（「ゲスト」ではなく厳密に取得します）
+  // 1. URLから studentId を取得（指定がない場合は元の仕様通り「ゲスト」）
   const urlParams = new URLSearchParams(window.location.search);
-  const studentId = urlParams.get('student');
+  const studentId = urlParams.get('student') || 'ゲスト';
 
-  // 2. ポータルサイト自体のアクセスログ
-  if (studentId) {
-    try {
-      await addDoc(collection(db, "access_logs"), {
-        studentId: studentId,
-        subject: "My スタディ（ポータルホーム）",
-        accessedAt: serverTimestamp()
-      });
-      console.log("【My スタディ】ポータルへのアクセスを記録しました。");
-    } catch (e) {
-      console.error("ポータルログ送信エラー:", e);
-    }
+  // 2. ポータルサイト自体のアクセスログ（access_logs へ送信）
+  try {
+    await addDoc(collection(db, "access_logs"), {
+      studentId: studentId,
+      subject: "My スタディ（ポータルホーム）",
+      accessedAt: serverTimestamp()
+    });
+    console.log("【My スタディ】ポータルへのアクセスを記録しました。");
+  } catch (e) {
+    console.error("ポータルログ送信エラー:", e);
   }
 
-  // 3. リンク（動画タブや各教科）をクリックしたときの自動処理
+  // 3. リンクをクリックしたときの処理
   document.addEventListener('click', async (e) => {
-    // クリックされたのが <a> タグ（リンク）かどうかをチェック
     const link = e.target.closest('a');
     if (!link) return;
 
     const href = link.getAttribute('href');
-    if (!href || href === '#' || href.startsWith('http')) return; // 外部リンクなどは無視
-
-    // リンク移動を一旦ストップして、裏側で処理を行う
-    e.preventDefault();
-
-    // 次のページに studentId を引き継ぐためのURLを作成
-    let targetUrl = href;
-    if (studentId && !href.includes('student=')) {
-      const separator = href.includes('?') ? '&' : '?';
-      targetUrl = href + separator + "student=" + studentId;
-    }
+    if (!href || href === '#') return;
 
     const linkText = link.textContent || "";
 
-    // もしクリックされたのが「動画」タブだったら
-    if (linkText.includes("動画") || linkText.includes("Video") || href.includes("video")) {
-      if (studentId) {
-        try {
-          // 動画のクリック記録を送信
-          await addDoc(collection(db, "access_logs"), {
-            studentId: studentId,
-            subject: "授業動画",
-            action: "視聴開始",
-            accessedAt: serverTimestamp()
-          });
-          console.log("【My スタディ】動画タブのクリックを記録しました！");
-        } catch (error) {
-          console.error("動画ログ送信エラー:", error);
-        }
+    // 【重要】クリックされたのが「動画」に関するリンクの場合のみ、一旦止めてFirebaseに送信
+    if (linkText.includes("動画") || linkText.includes("Video") || href.includes("shigaku-mystudy.com")) {
+      e.preventDefault(); // 送信を待つために一時停止
+      
+      try {
+        // 元の仕様通りのフィールドで learning_records に保存
+        await addDoc(collection(db, "learning_records"), {
+          studentId: studentId,
+          subject: "授業動画",
+          unit: "動画視聴",
+          questionId: "視聴開始",
+          action: "視聴",
+          correct: 1,
+          total: 1,
+          timestamp: serverTimestamp()
+        });
+        console.log("【My スタディ】動画の視聴記録を learning_records に保存しました！");
+      } catch (error) {
+        console.error("動画学習記録の送信に失敗しました:", error);
+      }
+
+      // 送信完了後、HTMLに書かれている「元のURL」のまま移動（新タブ対応）
+      if (link.getAttribute('target') === '_blank') {
+        window.open(href, '_blank');
+      } else {
+        window.location.href = href;
       }
     }
-
-    // ログ送信が終わったら（または動画以外ならすぐに）、目的のページへ移動！
-    window.location.href = targetUrl;
+    // 動画以外のリンク（各教科など）は、上記の処理を通らないため、
+    // 元々のHTMLに書かれているURL・挙動のまま、100%完全にそのまま遷移します。
   });
 </script>
 
