@@ -267,7 +267,6 @@ body::before {
 </div>
 
 <script type="module">
-  // ★signOut を追加で読み込みます
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
   import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
@@ -293,9 +292,7 @@ body::before {
       currentStudentId = user.email.split('@')[0];
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('main-content').style.display = 'block';
-      // 注意: ページリロードごとにアクセスログが飛ぶのを防ぐため、ここでの recordAccess は外しました
     } else {
-      // ログアウト状態ならログイン画面を表示
       document.getElementById('login-screen').style.display = 'flex';
       document.getElementById('main-content').style.display = 'none';
     }
@@ -307,3 +304,106 @@ body::before {
     const id = document.getElementById('id-input').value.trim();
     const pass = document.getElementById('pass-input').value.trim();
     const errorMsg = document.getElementById('login-error');
+    
+    if (!id || !pass) {
+      errorMsg.textContent = "IDとパスワードを入力してください";
+      errorMsg.style.display = 'block';
+      return;
+    }
+
+    const loginEmail = id.includes('@') ? id : `${id}@mystudy.dummy.com`;
+
+    try {
+      await signInWithEmailAndPassword(auth, loginEmail, pass);
+      
+      errorMsg.style.display = 'none';
+      currentStudentId = id;
+      
+      // 【復活箇所】ログイン成功時に画面を切り替える指示！
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+      
+      recordAccess(currentStudentId); 
+    } catch (error) {
+      errorMsg.textContent = "IDまたはパスワードが間違っています";
+      errorMsg.style.display = 'block';
+      console.error("ログインエラー:", error);
+    }
+  });
+
+  // ログアウトボタンが押された時の処理
+  const logoutBtn = document.getElementById('logout-btn');
+  logoutBtn.addEventListener('click', async () => {
+    try {
+      await signOut(auth);
+      currentStudentId = "";
+      
+      document.getElementById('id-input').value = '';
+      document.getElementById('pass-input').value = '';
+      document.getElementById('login-error').style.display = 'none';
+      
+      alert("ログアウトしました。");
+    } catch (error) {
+      console.error("ログアウトエラー:", error);
+    }
+  });
+
+  // 3. ポータルアクセス記録の送信関数
+  async function recordAccess(studentId) {
+    try {
+      await addDoc(collection(db, "access_logs"), {
+        studentId: studentId,
+        subject: "My スタディ（ポータルホーム）",
+        accessedAt: serverTimestamp()
+      });
+    } catch (e) { console.error("アクセス記録エラー:", e); }
+  }
+
+  // 4. 各教科や動画リンクをクリックした時の処理
+  document.addEventListener('click', async (e) => {
+    const link = e.target.closest('a');
+    if (!link) return;
+
+    const href = link.getAttribute('href');
+    if (!href || href === '#') return;
+
+    e.preventDefault(); 
+
+    const linkText = link.textContent || "";
+    
+    if (linkText.includes("動画") || href.includes("shigaku-mystudy.com")) {
+      try {
+        await addDoc(collection(db, "learning_records"), {
+          studentId: currentStudentId || "ゲスト",
+          subject: "授業動画",
+          unit: "動画視聴",
+          questionId: "視聴開始",
+          action: "視聴",
+          correct: 1,
+          total: 1,
+          timestamp: serverTimestamp()
+        });
+      } catch (error) { console.error("動画記録エラー:", error); }
+      
+      if (link.getAttribute('target') === '_blank') {
+        window.open(href, '_blank');
+      } else {
+        window.location.href = href;
+      }
+    } else {
+      let targetUrl = href;
+      if (currentStudentId && !href.includes('student=')) {
+        const separator = href.includes('?') ? '&' : '?';
+        targetUrl = href + separator + "student=" + currentStudentId;
+      }
+      
+      if (link.getAttribute('target') === '_blank') {
+        window.open(targetUrl, '_blank');
+      } else {
+        window.location.href = targetUrl;
+      }
+    }
+  });
+</script>
+</body>
+</html>
