@@ -9,6 +9,12 @@
   .container { max-width: 1000px; margin: 0 auto; background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.05); }
   h2 { color: #1a2e4a; margin-bottom: 20px; border-bottom: 2px solid #e2e6ee; padding-bottom: 10px; }
   
+  /* エコモード用スタイル */
+  .update-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #e8f0fb; padding: 12px 18px; border-radius: 8px; border: 1px solid #cce0ff; }
+  .update-btn { background: #2963B1; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+  .update-btn:hover { background: #3572c0; }
+  .cache-notice { font-size: 0.9em; color: #444; }
+
   table { width: 100%; border-collapse: collapse; margin-top: 10px; }
   th, td { padding: 14px; text-align: left; border-bottom: 1px solid #e2e6ee; }
   th { background-color: #2963B1; color: white; user-select: none; }
@@ -21,7 +27,6 @@
   tr.zero-activity:hover { background-color: #ffe4e4; }
   
   .student-name-text { font-weight: 600; font-size: 1.05em; color: #222; letter-spacing: 0.05em; }
-  
   .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.85em; }
   .badge-alert { background: #e74c3c; color: white; }
   .student-id-sub { font-size: 0.75em; color: #888; font-weight: normal; display: block; margin-top: 2px; }
@@ -55,9 +60,19 @@
 
 <div class="container">
   <h2>📊 生徒学習状況リアルタイム分析</h2>
+  
+  <!-- ★エコモード案内バー -->
+  <div class="update-bar">
+    <div class="cache-notice">
+      💡 <strong>通信量節約モード稼働中</strong>（Firebaseへの通信を抑えています）<br>
+      データ取得時刻: <strong id="last-update-time" style="color:#e74c3c;">未取得</strong>
+    </div>
+    <button id="force-update-btn" class="update-btn">🔄 最新データに更新</button>
+  </div>
+  
   <p style="font-size: 0.9em; color: #666;">※生徒の行をクリックすると、個人の詳細カルテが表示されます。</p>
   
-  <div id="loading-view" class="loading">⏳ Firebaseから学習記録を読み込んで集計中...</div>
+  <div id="loading-view" class="loading">⏳ データを集計中...</div>
   
   <table id="student-table" style="display: none;">
     <thead>
@@ -123,7 +138,7 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
- const STUDENT_RECORDS = {
+  const STUDENT_RECORDS = {
     "student001@shigaku.local": "後田 莉乃葉",
     "teacher@shigaku.local": "日野 妙三",
     "sky@shigaku.local": "Sky",
@@ -143,13 +158,46 @@
   "student014@shigaku.local": "橋元 湧",
   "student015@shigaku.local": "福薗 賢人"
   };
-  
   const REGISTERED_STUDENTS = Object.keys(STUDENT_RECORDS);
 
   let currentModalStudentId = ""; 
-  let allRecentRecords = []; // メモリ上に全履歴を保持して高速化
+  let allRecentRecords = []; 
 
-  async function loadAndAggregateData() {
+  // ★ エコモードの中核：キャッシュから読み込むか判定する関数
+  async function initDashboard(forceUpdate = false) {
+    document.getElementById('loading-view').style.display = 'block';
+    document.getElementById('student-table').style.display = 'none';
+    
+    const cachedTime = localStorage.getItem('mystudy_cache_time');
+    const cachedMap = localStorage.getItem('mystudy_student_map');
+    const cachedRec = localStorage.getItem('mystudy_recent_records');
+    
+    const nowMs = Date.now();
+    const CACHE_MINUTES = 30; // ★30分間は再読み込みを防ぐ
+    const expireMs = CACHE_MINUTES * 60 * 1000;
+
+    if (!forceUpdate && cachedTime && cachedMap && cachedRec && (nowMs - parseInt(cachedTime)) < expireMs) {
+        // キャッシュ（PC内の記憶）から即座に復元
+        const studentMap = JSON.parse(cachedMap);
+        allRecentRecords = JSON.parse(cachedRec);
+        
+        const dateObj = new Date(parseInt(cachedTime));
+        document.getElementById('last-update-time').textContent = dateObj.toLocaleTimeString('ja-JP');
+        
+        const studentList = Object.values(studentMap);
+        sortAndRender(studentList, 'count7');
+        
+        document.getElementById('loading-view').style.display = 'none';
+        document.getElementById('student-table').style.display = 'table';
+        return;
+    }
+
+    // 期限切れ、または強制更新ボタンが押されたらFirebaseから取得
+    document.getElementById('loading-view').textContent = "⏳ Firebaseから最新データを集計中...";
+    await fetchFromFirebaseAndAggregate();
+  }
+
+  async function fetchFromFirebaseAndAggregate() {
     try {
       const now = new Date();
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -161,42 +209,47 @@
       allRecentRecords = []; 
       const studentMap = {};
       REGISTERED_STUDENTS.forEach(id => {
-        studentMap[id] = { id: id, count7: 0, count30: 0, lastActive: null, subjects: {} };
+        studentMap[id] = { id: id, count7: 0, count30: 0, lastActiveMs: null, subjects: {} };
       });
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        allRecentRecords.push(data); // カルテ表示用に保存
-
+        
         let sId = data.studentId;
-
-        // ★修正箇所：今日の途中から発生した「IDの揺れ」を完全に統一・統合します
         if (sId) {
           if (sId === "ゲスト" || sId === "guest") {
             sId = "guest";
           } else if (!sId.includes('@')) {
-            sId = sId + '@shigaku.local'; // student001 を student001@shigaku.local に変換して合体
+            sId = sId + '@shigaku.local'; 
           }
         } else {
           sId = "unknown";
         }
 
-        if (!studentMap[sId]) studentMap[sId] = { id: sId, count7: 0, count30: 0, lastActive: null, subjects: {} };
+        if (!studentMap[sId]) studentMap[sId] = { id: sId, count7: 0, count30: 0, lastActiveMs: null, subjects: {} };
 
-        let timestampObj = null;
+        let timestampMs = null;
         if (data.timestamp) {
             if (typeof data.timestamp.toDate === 'function') {
-                timestampObj = data.timestamp.toDate(); 
+                timestampMs = data.timestamp.toDate().getTime(); 
             } else {
-                timestampObj = new Date(data.timestamp); 
-                if (isNaN(timestampObj.getTime())) timestampObj = null; 
+                const tmpDate = new Date(data.timestamp); 
+                if (!isNaN(tmpDate.getTime())) timestampMs = tmpDate.getTime(); 
             }
         }
 
-        if (timestampObj) {
+        if (timestampMs) {
+          // メモリ保存用
+          allRecentRecords.push({
+             studentId: sId,
+             subject: data.subject || 'その他/不明',
+             unit: data.unit || '',
+             timestampMs: timestampMs
+          });
+
           studentMap[sId].count30++;
-          if (timestampObj >= sevenDaysAgo) studentMap[sId].count7++;
-          if (!studentMap[sId].lastActive || timestampObj > studentMap[sId].lastActive) studentMap[sId].lastActive = timestampObj;
+          if (timestampMs >= sevenDaysAgo.getTime()) studentMap[sId].count7++;
+          if (!studentMap[sId].lastActiveMs || timestampMs > studentMap[sId].lastActiveMs) studentMap[sId].lastActiveMs = timestampMs;
           
           const subjectName = data.subject || 'その他/不明';
           if (!studentMap[sId].subjects[subjectName]) studentMap[sId].subjects[subjectName] = 0;
@@ -204,14 +257,17 @@
         }
       });
 
+      // ブラウザに結果を保存（エコモード用）
+      const nowMs = Date.now();
+      localStorage.setItem('mystudy_cache_time', nowMs.toString());
+      localStorage.setItem('mystudy_student_map', JSON.stringify(studentMap));
+      localStorage.setItem('mystudy_recent_records', JSON.stringify(allRecentRecords));
+
+      const dateObj = new Date(nowMs);
+      document.getElementById('last-update-time').textContent = dateObj.toLocaleTimeString('ja-JP');
+
       const studentList = Object.values(studentMap);
       sortAndRender(studentList, 'count7');
-
-      let isAsc = false;
-      document.getElementById('sort-7days').addEventListener('click', () => {
-        isAsc = !isAsc;
-        sortAndRender(studentList, 'count7', isAsc);
-      });
 
       document.getElementById('loading-view').style.display = 'none';
       document.getElementById('student-table').style.display = 'table';
@@ -231,7 +287,7 @@
       if (student.count30 === 0) tr.classList.add('zero-activity');
 
       const studentName = STUDENT_RECORDS[student.id] || student.id;
-      const dateStr = student.lastActive ? student.lastActive.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---';
+      const dateStr = student.lastActiveMs ? new Date(student.lastActiveMs).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---';
 
       tr.innerHTML = `<td><span class="student-name-text">${studentName}</span><span class="student-id-sub">${student.id}</span></td>
                       <td>${student.count7} 回</td><td>${student.count30} 回</td>
@@ -241,6 +297,16 @@
       tbody.appendChild(tr);
     });
   }
+
+  let isAsc = false;
+  document.getElementById('sort-7days').addEventListener('click', () => {
+    isAsc = !isAsc;
+    const cachedMap = localStorage.getItem('mystudy_student_map');
+    if (cachedMap) {
+      const studentList = Object.values(JSON.parse(cachedMap));
+      sortAndRender(studentList, 'count7', isAsc);
+    }
+  });
 
   const modal = document.getElementById('student-modal');
   const closeBtn = document.getElementById('modal-close-btn');
@@ -285,25 +351,15 @@
     historyList.innerHTML = '';
     modal.style.display = "flex";
 
-    // ★修正箇所：旧IDと新IDの両方の履歴を統合して表示します
     try {
       const shortId = student.id.includes('@') ? student.id.split('@')[0] : student.id;
-
-      // メモリ上の全記録から、該当生徒のものだけを旧形式・新形式問わず集める
       const myRecords = allRecentRecords.filter(data => {
          const sId = data.studentId;
          if (!sId) return false;
          return sId === student.id || sId === shortId || (student.id === "guest" && (sId === "ゲスト" || sId === "guest"));
       });
 
-      // 日付が新しい順に並び替え
-      myRecords.sort((a, b) => {
-         let timeA = 0, timeB = 0;
-         if (a.timestamp) timeA = typeof a.timestamp.toDate === 'function' ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
-         if (b.timestamp) timeB = typeof b.timestamp.toDate === 'function' ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
-         return timeB - timeA;
-      });
-
+      myRecords.sort((a, b) => b.timestampMs - a.timestampMs);
       const top5 = myRecords.slice(0, 5);
 
       if (top5.length === 0) {
@@ -312,13 +368,8 @@
       }
 
       top5.forEach((data) => {
-        let dateObj = null;
-        if (data.timestamp) {
-            if (typeof data.timestamp.toDate === 'function') dateObj = data.timestamp.toDate();
-            else dateObj = new Date(data.timestamp);
-        }
-
-        const dateStr = (dateObj && !isNaN(dateObj.getTime())) ? dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '不明';
+        const dateObj = new Date(data.timestampMs);
+        const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '不明';
         const subject = data.subject || '教科不明';
         const unit = data.unit || '';
         historyList.innerHTML += `<li><span style="color:#666; font-size:0.9em; margin-right:10px;">${dateStr}</span> <strong>${subject}</strong> <br><span style="font-size:0.9em; color:#444;">${unit}</span></li>`;
@@ -358,7 +409,14 @@
     }
   });
 
-  loadAndAggregateData();
+  // 更新ボタンの処理
+  document.getElementById('force-update-btn').addEventListener('click', () => {
+    initDashboard(true);
+  });
+
+  // 初回起動
+  initDashboard(false);
 </script>
 </body>
 </html>
+  
