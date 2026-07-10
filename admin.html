@@ -166,7 +166,6 @@
   let currentModalStudentId = ""; 
   let allRecentRecords = []; 
 
-  // ★ エコモードの中核：キャッシュから読み込むか判定する関数
   async function initDashboard(forceUpdate = false) {
     document.getElementById('loading-view').style.display = 'block';
     document.getElementById('student-table').style.display = 'none';
@@ -176,11 +175,10 @@
     const cachedRec = localStorage.getItem('mystudy_recent_records');
     
     const nowMs = Date.now();
-    const CACHE_MINUTES = 30; // ★30分間は再読み込みを防ぐ
+    const CACHE_MINUTES = 30;
     const expireMs = CACHE_MINUTES * 60 * 1000;
 
     if (!forceUpdate && cachedTime && cachedMap && cachedRec && (nowMs - parseInt(cachedTime)) < expireMs) {
-        // キャッシュ（PC内の記憶）から即座に復元
         const studentMap = JSON.parse(cachedMap);
         allRecentRecords = JSON.parse(cachedRec);
         
@@ -195,7 +193,6 @@
         return;
     }
 
-    // 期限切れ、または強制更新ボタンが押されたらFirebaseから取得
     document.getElementById('loading-view').textContent = "⏳ Firebaseから最新データを集計中...";
     await fetchFromFirebaseAndAggregate();
   }
@@ -218,6 +215,11 @@
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         
+        // ★今回の追加修正：アクセス記録（起動しただけ）のデータは集計から除外する
+        if (data.action === "学習開始" || data.questionId === "アクセス") {
+            return; // この行のデータは無視して次に進む
+        }
+
         let sId = data.studentId;
         if (sId) {
           if (sId === "ゲスト" || sId === "guest") {
@@ -242,7 +244,6 @@
         }
 
         if (timestampMs) {
-          // メモリ保存用
           allRecentRecords.push({
              studentId: sId,
              subject: data.subject || 'その他/不明',
@@ -260,7 +261,6 @@
         }
       });
 
-      // ブラウザに結果を保存（エコモード用）
       const nowMs = Date.now();
       localStorage.setItem('mystudy_cache_time', nowMs.toString());
       localStorage.setItem('mystudy_student_map', JSON.stringify(studentMap));
@@ -412,14 +412,11 @@
     }
   });
 
-  // 更新ボタンの処理
   document.getElementById('force-update-btn').addEventListener('click', () => {
     initDashboard(true);
   });
 
-  // 初回起動
   initDashboard(false);
 </script>
 </body>
 </html>
-  
