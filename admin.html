@@ -113,14 +113,32 @@
     <div id="modal-history-loading" style="font-size: 0.8em; color: #888; display: none;">履歴を読み込み中...</div>
     <div class="recent-logs"><ul id="modal-recent-list"></ul></div>
 
-    <div class="message-box">
-      <h4 style="margin: 0 0 10px 0; font-size: 1em; color: #1a2e4a;">💬 この生徒にメッセージを送る</h4>
+<div class="message-box">
+      <!-- 見出しを少し変更 -->
+      <h4 style="margin: 0 0 10px 0; font-size: 1em; color: #1a2e4a;">💬 メッセージ・プリントを送る</h4>
+      
+      <!-- ★追加1: 送信先選択メニュー -->
+      <div style="margin-bottom: 10px;">
+        <select id="msg-target-type" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.9em;">
+          <option value="individual">表示中の生徒（個人）</option>
+          <option value="grade_1">中学1年生 全員</option>
+          <option value="grade_2">中学2年生 全員</option>
+          <option value="grade_3">中学3年生 全員</option>
+          <option value="all">生徒全員</option>
+        </select>
+      </div>
+
+      <!-- ★追加2: PDF添付ボタン -->
+      <div style="margin-bottom: 10px;">
+        <label for="pdf-upload-input" style="font-size: 0.85em; font-weight: bold; color: #333;">📄 PDF添付: </label>
+        <input type="file" id="pdf-upload-input" accept="application/pdf" style="font-size: 0.85em;">
+      </div>
+
+      <!-- (既存の入力枠とボタン) -->
       <textarea id="teacher-msg-input" rows="2" placeholder="例：今週はよく頑張っているね！土曜特訓もこの調子で！"></textarea>
       <button id="send-msg-btn" class="send-btn">送信する</button>
       <span id="msg-send-status" style="margin-left: 10px; font-size: 0.85em; color: #e74c3c;"></span>
     </div>
-  </div>
-</div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
