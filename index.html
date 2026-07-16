@@ -184,7 +184,7 @@ const STUDENT_RECORDS = {
     const msgArea = document.getElementById('personal-message-area');
     // 名簿に登録があれば漢字のフルネームを、なければ@より前を表示
     const displayName = STUDENT_RECORDS[fullEmail] || fullEmail.split('@')[0];
-    const defaultMsg = `<span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${displayName} さん、ようこそ！</strong></span><br><br>志学生学力向上サイト！MyStudy "Myスタ". 反復、反復、定着、定着 → "学力向上"!!<br>You guys, study hard every day. 日々の学習のモチベーションアップにぜひご活用ください！<br>New Contents｢英文法 完全マスター｣導入! 英単語タブから使用できます。`;
+    const defaultMsg = `<span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${displayName} さん、ようこそ！</strong></span><br><br>志学生学力向上サイト！MyStudy "Myスタ". 反復、反復、定着、定着 → "学力向上"!!<br>You guys, study hard every day. 日々の学習のモチベーションアップにぜひご活用ください！<br>夏休み明けの実力テストに向け、範囲表を参考に計画的に学習していこう。目ざせ自己最高得点!!`;
 
     try {
       const q = query(collection(db, "teacher_messages"), where("studentId", "==", fullEmail));
