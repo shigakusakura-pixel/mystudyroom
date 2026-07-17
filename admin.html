@@ -415,28 +415,34 @@
     }
   }
 
-  // ★変更: メッセージ・PDF送信処理
+// ★変更: メッセージ・PDF送信処理（PDFのみでも送信可能に）
   document.getElementById('send-msg-btn').addEventListener('click', async () => {
     const msgInput = document.getElementById('teacher-msg-input');
     const statusText = document.getElementById('msg-send-status');
     const targetTypeElement = document.getElementById('msg-target-type');
     const pdfInputElement = document.getElementById('pdf-upload-input');
     
-    const message = msgInput.value.trim();
+    let message = msgInput.value.trim();
+    const hasFile = pdfInputElement && pdfInputElement.files.length > 0;
 
-    if (!message) {
-      statusText.textContent = "メッセージを入力してください";
+    // 変更点：メッセージもファイルもない時だけ警告を出す
+    if (!message && !hasFile) {
+      statusText.textContent = "メッセージを入力するか、PDFを添付してください";
       return;
     }
 
+    // 変更点：ファイルだけがあってメッセージが空欄の場合、自動で定型文を入れる
+    if (!message && hasFile) {
+      message = "📁 プリントが届きました（添付ファイルを確認してください）";
+    }
+
     statusText.style.color = "#333";
-    statusText.textContent = "送信中... (PDF添付時は数秒かかります)";
+    statusText.textContent = "送信中... (PDFアップロード中はそのままお待ちください)";
 
     try {
       let pdfUrl = null;
 
-      // PDFファイルが選択されていればStorageにアップロード
-      if (pdfInputElement && pdfInputElement.files.length > 0) {
+      if (hasFile) {
         const file = pdfInputElement.files[0];
         if (file.type !== "application/pdf") {
            statusText.textContent = "エラー：PDFファイルを選択してください。";
@@ -446,16 +452,14 @@
         pdfUrl = await uploadPdfToStorage(file);
       }
 
-      // 送信先の設定（個人・学年・全体）
       let target = currentModalStudentId; 
       if (targetTypeElement && targetTypeElement.value !== "individual") {
         target = targetTypeElement.value;
       }
 
-      // Firestoreへ保存
       await addDoc(collection(db, "teacher_messages"), {
         target: target,
-        studentId: currentModalStudentId, // 念のため残す
+        studentId: currentModalStudentId, 
         message: message,
         pdfUrl: pdfUrl,
         isRead: false,
@@ -464,6 +468,17 @@
 
       statusText.style.color = "#27ae60";
       statusText.textContent = "✅ 送信しました！";
+      
+      msgInput.value = ""; 
+      if (pdfInputElement) pdfInputElement.value = ""; 
+      if (targetTypeElement) targetTypeElement.value = "individual";
+
+    } catch (e) {
+      console.error(e);
+      statusText.style.color = "#e74c3c";
+      statusText.textContent = "❌ 送信に失敗しました";
+    }
+  });
       
       // 送信後のクリア
       msgInput.value = ""; 
