@@ -203,18 +203,75 @@ const STUDENT_RECORDS = {
   // ★追加機能：過去のメッセージを読み込んで表示し、削除できるようにする処理
 async function loadSentMessages(studentId) {
     const listContainer = document.getElementById('sent-messages-list');
-    listContainer.innerHTML = '確認中...';
+    listContainer.innerHTML = '<div style="color:#888;">読み込み中...</div>';
     
     try {
       const querySnapshot = await getDocs(collection(db, "teacher_messages"));
-      console.log("--- データベース内の全メッセージ ---");
+      const studentInfo = STUDENT_RECORDS[studentId] || { grade: "none" };
+      const myGrade = studentInfo.grade;
+
+      let msgs = [];
       querySnapshot.forEach(d => {
-        console.log("ID:", d.id, "データ:", d.data());
+        const data = d.data();
+        
+        // ★ここを修正：targetがないデータも考慮し、studentIdで判定する
+        const target = data.target || data.studentId; 
+        
+        if (target === studentId || target === myGrade || target === "all") {
+           msgs.push({ id: d.id, ...data });
+        }
       });
       
-      listContainer.innerHTML = 'コンソールを確認してください';
+      msgs.sort((a, b) => {
+        let timeA = a.timestamp ? (typeof a.timestamp.toDate === 'function' ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime()) : 0;
+        let timeB = b.timestamp ? (typeof b.timestamp.toDate === 'function' ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime()) : 0;
+        return timeB - timeA;
+      });
+
+      if(msgs.length === 0) {
+        listContainer.innerHTML = '<div style="color:#888;">送信済みのメッセージはありません</div>';
+        return;
+      }
+
+      listContainer.innerHTML = '';
+      msgs.forEach(msg => {
+        let dateStr = "日付不明";
+        if(msg.timestamp) {
+          let dateObj = typeof msg.timestamp.toDate === 'function' ? msg.timestamp.toDate() : new Date(msg.timestamp);
+          dateStr = dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+        }
+        
+        const div = document.createElement('div');
+        div.style.cssText = "display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding:5px 0;";
+        
+        div.innerHTML = `
+          <div style="flex:1; padding-right:10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            <span style="color:#555;">${dateStr}</span> 
+            <strong style="color:#333; margin-left:5px;">${msg.message || '添付ファイルのみ'}</strong>
+          </div>
+          <button class="delete-msg-btn" data-id="${msg.id}" data-url="${msg.pdfUrl || ''}" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.9em;">削除</button>
+        `;
+        listContainer.appendChild(div);
+      });
+
+      document.querySelectorAll('.delete-msg-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const docId = e.target.getAttribute('data-id');
+          const pdfUrl = e.target.getAttribute('data-url');
+          if(confirm("このデータを削除しますか？")) {
+            try {
+              if(pdfUrl) {
+                try { await deleteObject(ref(storage, pdfUrl)); } catch(err) { console.warn("ファイル削除エラー", err); }
+              }
+              await deleteDoc(doc(db, "teacher_messages", docId));
+              loadSentMessages(studentId);
+            } catch(err) { alert("削除失敗: " + err.message); }
+          }
+        });
+      });
     } catch(e) {
-      listContainer.innerHTML = 'エラー: ' + e.message;
+      listContainer.innerHTML = '<div style="color:#e74c3c;">読み込み失敗</div>';
+      console.error(e);
     }
   }
 
