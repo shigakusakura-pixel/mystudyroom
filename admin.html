@@ -143,7 +143,6 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getFirestore, collection, query, where, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-  // Storage用のプログラムを追加
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
   const firebaseConfig = {
@@ -157,7 +156,6 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
-  // Storageの初期化を追加
   const storage = getStorage(app);
 
   const STUDENT_RECORDS = {
@@ -188,7 +186,6 @@
   let currentModalStudentId = ""; 
   let allRecentRecords = []; 
 
-  // ★追加: PDFをStorageにアップロードしてURLを取得する関数
   async function uploadPdfToStorage(file) {
     const fileName = `${Date.now()}_${file.name}`;
     const storageRef = ref(storage, `pdfs/${fileName}`);
@@ -244,7 +241,6 @@
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        
         if (data.action === "学習開始" || data.questionId === "アクセス") {
             return; 
         }
@@ -356,7 +352,6 @@
     document.getElementById('teacher-msg-input').value = "";
     document.getElementById('msg-send-status').textContent = "";
     
-    // PDF入力欄のリセット（追加）
     const pdfInputElement = document.getElementById('pdf-upload-input');
     if (pdfInputElement) pdfInputElement.value = "";
 
@@ -415,7 +410,6 @@
     }
   }
 
-// ★変更: メッセージ・PDF送信処理（PDFのみでも送信可能に）
   document.getElementById('send-msg-btn').addEventListener('click', async () => {
     const msgInput = document.getElementById('teacher-msg-input');
     const statusText = document.getElementById('msg-send-status');
@@ -425,13 +419,11 @@
     let message = msgInput.value.trim();
     const hasFile = pdfInputElement && pdfInputElement.files.length > 0;
 
-    // 変更点：メッセージもファイルもない時だけ警告を出す
     if (!message && !hasFile) {
       statusText.textContent = "メッセージを入力するか、PDFを添付してください";
       return;
     }
 
-    // 変更点：ファイルだけがあってメッセージが空欄の場合、自動で定型文を入れる
     if (!message && hasFile) {
       message = "📁 プリントが届きました（添付ファイルを確認してください）";
     }
@@ -469,21 +461,6 @@
       statusText.style.color = "#27ae60";
       statusText.textContent = "✅ 送信しました！";
       
-      // 送信後のクリア
-      msgInput.value = ""; 
-      if (pdfInputElement) pdfInputElement.value = ""; 
-      if (targetTypeElement) targetTypeElement.value = "individual";
-
-    } catch (e) {
-      console.error(e);
-      statusText.style.color = "#e74c3c";
-      statusText.textContent = "❌ 送信に失敗しました";
-    }
-  });
-
-  // もしこの下に force-update-btn の処理や initDashboard(false); があればそのまま残してください
-      
-      // 送信後のクリア
       msgInput.value = ""; 
       if (pdfInputElement) pdfInputElement.value = ""; 
       if (targetTypeElement) targetTypeElement.value = "individual";
