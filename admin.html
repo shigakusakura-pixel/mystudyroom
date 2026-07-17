@@ -201,83 +201,20 @@ const STUDENT_RECORDS = {
   }
 
   // ★追加機能：過去のメッセージを読み込んで表示し、削除できるようにする処理
- async function loadSentMessages(studentId) {
+async function loadSentMessages(studentId) {
     const listContainer = document.getElementById('sent-messages-list');
-    listContainer.innerHTML = '<div style="color:#888;">読み込み中...</div>';
+    listContainer.innerHTML = '確認中...';
     
     try {
-      // 1. まず全ての送信済みメッセージを一度に取得する
       const querySnapshot = await getDocs(collection(db, "teacher_messages"));
-      
-      // 2. 名簿からこの生徒の情報を取得
-      const studentInfo = STUDENT_RECORDS[studentId] || { grade: "none" };
-      const myGrade = studentInfo.grade;
-
-      let msgs = [];
+      console.log("--- データベース内の全メッセージ ---");
       querySnapshot.forEach(d => {
-        const data = d.data();
-        // 3. プログラム側で「自分宛・自分の学年宛・全員宛」を判定して選別する
-        if (data.target === studentId || data.target === myGrade || data.target === "all") {
-           msgs.push({ id: d.id, ...data });
-        }
+        console.log("ID:", d.id, "データ:", d.data());
       });
       
-      // 4. 日付順に並び替え
-      msgs.sort((a, b) => {
-        let timeA = a.timestamp ? (typeof a.timestamp.toDate === 'function' ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime()) : 0;
-        let timeB = b.timestamp ? (typeof b.timestamp.toDate === 'function' ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime()) : 0;
-        return timeB - timeA;
-      });
-
-      if(msgs.length === 0) {
-        listContainer.innerHTML = '<div style="color:#888;">送信済みのメッセージはありません</div>';
-        return;
-      }
-
-      listContainer.innerHTML = '';
-      msgs.forEach(msg => {
-        let dateStr = "日付不明";
-        if(msg.timestamp) {
-          let dateObj = typeof msg.timestamp.toDate === 'function' ? msg.timestamp.toDate() : new Date(msg.timestamp);
-          dateStr = dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-        }
-        
-        const div = document.createElement('div');
-        div.style.cssText = "display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding:5px 0;";
-        
-        const targetLabel = msg.target === 'all' ? '[全員]' : (msg.target.startsWith('grade') ? '['+msg.target+']' : '');
-        
-        div.innerHTML = `
-          <div style="flex:1; padding-right:10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-            <span style="color:#555;">${dateStr}</span> 
-            <span style="color:#2980b9; font-weight:bold;">${targetLabel}</span> 
-            <strong style="color:#333; margin-left:5px;">${msg.message || '添付ファイルのみ'}</strong>
-          </div>
-          <button class="delete-msg-btn" data-id="${msg.id}" data-url="${msg.pdfUrl || ''}" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.9em;">削除</button>
-        `;
-        listContainer.appendChild(div);
-      });
-
-      // 削除ボタンの処理
-      document.querySelectorAll('.delete-msg-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const docId = e.target.getAttribute('data-id');
-          const pdfUrl = e.target.getAttribute('data-url');
-          if(confirm("このデータを削除しますか？")) {
-            try {
-              if(pdfUrl) {
-                try { await deleteObject(ref(storage, pdfUrl)); } catch(err) { console.warn("ファイル削除エラー", err); }
-              }
-              await deleteDoc(doc(db, "teacher_messages", docId));
-              loadSentMessages(studentId); // 再読み込み
-            } catch(err) { alert("削除失敗: " + err.message); }
-          }
-        });
-      });
-
+      listContainer.innerHTML = 'コンソールを確認してください';
     } catch(e) {
-      listContainer.innerHTML = '<div style="color:#e74c3c;">読み込み失敗</div>';
-      console.error(e);
+      listContainer.innerHTML = 'エラー: ' + e.message;
     }
   }
 
