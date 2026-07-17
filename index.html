@@ -156,42 +156,49 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 
   // ★ ここに名簿が入っています！生徒を追加する時はこの中に追記してください
 const STUDENT_RECORDS = {
-    "student001@shigaku.local": "後田 莉乃葉",
-    "teacher@shigaku.local": "日野 妙三",
-    "sky@shigaku.local": "Sky",
-    "guest": "ゲストユーザー",
-    "tuji@shigaku.local": "辻 結香",
-    "student003@shigaku.local": "辻 沙香",
-    "student004@shigaku.local": "二ノ宮 愛彩",
-    "student005@shigaku.local": "丸目 妃織",
-    "student006@shigaku.local": "久保 善光",
-    "student007@shigaku.local": "新留 らな",
-    "student008@shigaku.local": "溝口 ゆうか",
-    "student009@shigaku.local": "川原 美桜",
-    "student010@shigaku.local": "藤中 敬斗",
-    "yoshi@shigaku.local": "吉元 碧唯",
-    "student012@shigaku.local": "中 凜華",
-    "student013@shigaku.local": "古川 桜汰",
-    "student014@shigaku.local": "橋元 湧",
-    "student015@shigaku.local": "福薗 賢人",
-    "student016@shigaku.local": "宮崎 玲歩",
-    "student017@shigaku.local": "鮫島 蒼侑",
-    "student018@shigaku.local": "長倉 良介"
+    "student001@shigaku.local": { name: "後田 莉乃葉", grade: "grade_2" },
+    "tuji@shigaku.local": { name: "辻 結香", grade: "grade_2" },
+    "student003@shigaku.local": { name: "辻 沙香", grade: "grade_1" },
+    "student004@shigaku.local": { name: "二ノ宮 愛彩", grade: "grade_3" },
+    "student005@shigaku.local": { name: "丸目 妃織", grade: "grade_3" },
+    "student006@shigaku.local": { name: "久保 善光", grade: "grade_3" },
+    "student007@shigaku.local": { name: "新留 らな", grade: "grade_3" },
+    "student008@shigaku.local": { name: "溝口 ゆうか", grade: "grade_3" },
+    "student009@shigaku.local": { name: "川原 美桜", grade: "grade_3" },
+    "student010@shigaku.local": { name: "藤中 敬斗", grade: "grade_3" },
+    "yoshi@shigaku.local": { name: "吉元 碧唯", grade: "grade_3" },
+    "student012@shigaku.local": { name: "中 凜華", grade: "grade_3" },
+    "student013@shigaku.local": { name: "古川 桜汰", grade: "grade_3" },
+    "student014@shigaku.local": { name: "橋元 湧", grade: "grade_3" },
+    "student015@shigaku.local": { name: "福薗 賢人", grade: "grade_3" },
+    "student016@shigaku.local": { name: "宮崎 玲歩", grade: "grade_3" },
+    "student017@shigaku.local": { name: "鮫島 蒼侑", grade: "grade_3" },
+    "student018@shigaku.local": { name: "長倉 良介", grade: "grade_3" },
+    "teacher@shigaku.local": { name: "日野 妙三", grade: "all" },
+    "sky@shigaku.local": { name: "Sky", grade: "all" },
+    "guest": { name: "ゲストユーザー", grade: "all" }
   };
   let currentStudentId = "";
 
 async function loadPersonalMessage(fullEmail) {
     const msgArea = document.getElementById('personal-message-area');
-    // 名簿に登録があれば漢字のフルネームを、なければ@より前を表示
-    const displayName = STUDENT_RECORDS[fullEmail] || fullEmail.split('@')[0];
+    // 名簿から名前と学年を取得
+    const studentInfo = STUDENT_RECORDS[fullEmail] || { name: fullEmail.split('@')[0], grade: "none" };
+    const displayName = studentInfo.name;
+    const myGrade = studentInfo.grade;
+    
+    // 表示用のデフォルトメッセージ
     const defaultMsg = `<span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${displayName} さん、ようこそ！</strong></span><br><br>志学生学力向上サイト！MyStudy "Myスタ". 反復、反復、定着、定着 → "学力向上"!!<br>You guys, study hard every day. 日々の学習のモチベーションアップにぜひご活用ください！<br>夏休み明けの実力テストに向け、範囲表を参考に計画的に学習していこう。目ざせ自己最高得点!!`;
 
     try {
-      const q = query(collection(db, "teacher_messages"), where("studentId", "==", fullEmail));
+      // 自分のメール宛(個別)、または自分の学年宛、または全員(all)宛を探す
+      // ※targetフィールドで検索します
+      const q = query(collection(db, "teacher_messages"), 
+                 where("target", "in", [fullEmail, myGrade, "all"]));
       const querySnapshot = await getDocs(q);
 
       let latestMsg = null;
-      let latestPdfUrl = null; // ★ここを追加：PDFのURLを入れる箱
+      let latestPdfUrl = null;
       let latestTime = 0;
 
       querySnapshot.forEach((doc) => {
@@ -203,21 +210,15 @@ async function loadPersonalMessage(fullEmail) {
         if (time >= latestTime) {
           latestTime = time;
           latestMsg = data.message;
-          // ★ここを追加：データベースからPDFのURL（pdfUrl または fileUrl）を取得
-          latestPdfUrl = data.pdfUrl || data.fileUrl || null; 
+          latestPdfUrl = data.pdfUrl || data.fileUrl || null;
         }
       });
 
       if (latestMsg) {
-        // ★まずメッセージの文章を作成
         let htmlContent = `<span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${displayName} さんへのお知らせ</strong></span><br><br>${latestMsg.replace(/\n/g, '<br>')}`;
-        
-        // ★もしPDFのURLが一緒に保存されていれば、青いボタンを付け足す
         if (latestPdfUrl) {
           htmlContent += `<br><br><a href="${latestPdfUrl}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #2a9d8f; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">📄 添付ファイル（PDF）を開く</a>`;
         }
-        
-        // 画面に表示する
         msgArea.innerHTML = htmlContent;
       } else {
         msgArea.innerHTML = defaultMsg;
