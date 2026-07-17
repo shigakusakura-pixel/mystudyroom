@@ -469,6 +469,7 @@
       statusText.style.color = "#27ae60";
       statusText.textContent = "✅ 送信しました！";
       
+      // 送信後のクリア
       msgInput.value = ""; 
       if (pdfInputElement) pdfInputElement.value = ""; 
       if (targetTypeElement) targetTypeElement.value = "individual";
@@ -479,6 +480,8 @@
       statusText.textContent = "❌ 送信に失敗しました";
     }
   });
+
+  // もしこの下に force-update-btn の処理や initDashboard(false); があればそのまま残してください
       
       // 送信後のクリア
       msgInput.value = ""; 
