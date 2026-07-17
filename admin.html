@@ -113,11 +113,9 @@
     <div id="modal-history-loading" style="font-size: 0.8em; color: #888; display: none;">履歴を読み込み中...</div>
     <div class="recent-logs"><ul id="modal-recent-list"></ul></div>
 
-<div class="message-box">
-      <!-- 見出しを少し変更 -->
+    <div class="message-box">
       <h4 style="margin: 0 0 10px 0; font-size: 1em; color: #1a2e4a;">💬 メッセージ・プリントを送る</h4>
       
-      <!-- ★追加1: 送信先選択メニュー -->
       <div style="margin-bottom: 10px;">
         <select id="msg-target-type" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.9em;">
           <option value="individual">表示中の生徒（個人）</option>
@@ -128,22 +126,31 @@
         </select>
       </div>
 
-      <!-- ★追加2: PDF添付ボタン -->
-      <!-- ★追加2: PDF添付ボタン（目立つように装飾） -->
       <div style="margin-bottom: 12px; padding: 6px 10px; background-color: #ebf5fb; border-left: 4px solid #2980b9; border-radius: 4px;">
         <label for="pdf-upload-input" style="font-size: 0.9em; font-weight: bold; color: #1b4f72;">📄 PDFプリント添付: </label>
         <input type="file" id="pdf-upload-input" accept="application/pdf" style="font-size: 0.85em; cursor: pointer; color: #2c3e50;">
       </div>
 
-      <!-- (既存の入力枠とボタン) -->
       <textarea id="teacher-msg-input" rows="2" placeholder="例：今週はよく頑張っているね！土曜特訓もこの調子で！"></textarea>
       <button id="send-msg-btn" class="send-btn">送信する</button>
       <span id="msg-send-status" style="margin-left: 10px; font-size: 0.85em; color: #e74c3c;"></span>
+      
+      <!-- ★追加機能：送信済みメッセージの管理エリア -->
+      <h4 style="margin: 25px 0 10px 0; font-size: 0.95em; color: #1a2e4a; border-top: 1px dashed #ccc; padding-top: 15px;">🗑️ 送信済みメッセージの管理</h4>
+      <div id="sent-messages-list" style="font-size: 0.85em; max-height: 150px; overflow-y: auto; background: #fff; border: 1px solid #ccc; padding: 10px; border-radius: 4px;">
+        <div style="color:#888;">読み込み中...</div>
+      </div>
+
     </div>
+  </div>
+</div>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getFirestore, collection, query, where, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+  // ★Firestoreの命令に「deleteDoc」と「doc」を追加
+  import { getFirestore, collection, query, where, getDocs, addDoc, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  // ★Storageの命令に「deleteObject」を追加
+  import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBQjnlOfeVvWQJHDxGE9cq-jGsYF3uo0PY",
@@ -191,6 +198,91 @@
     const storageRef = ref(storage, `pdfs/${fileName}`);
     await uploadBytes(storageRef, file);
     return await getDownloadURL(storageRef);
+  }
+
+  // ★追加機能：過去のメッセージを読み込んで表示し、削除できるようにする処理
+  async function loadSentMessages(studentId) {
+    const listContainer = document.getElementById('sent-messages-list');
+    listContainer.innerHTML = '<div style="color:#888;">読み込み中...</div>';
+    try {
+      const q = query(collection(db, "teacher_messages"), where("studentId", "==", studentId));
+      const querySnapshot = await getDocs(q);
+      
+      let msgs = [];
+      querySnapshot.forEach(d => {
+        msgs.push({ id: d.id, ...d.data() });
+      });
+      
+      // 日付が新しい順に並び替え
+      msgs.sort((a, b) => {
+        let timeA = a.timestamp ? (typeof a.timestamp.toDate === 'function' ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime()) : 0;
+        let timeB = b.timestamp ? (typeof b.timestamp.toDate === 'function' ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime()) : 0;
+        return timeB - timeA;
+      });
+
+      if(msgs.length === 0) {
+        listContainer.innerHTML = '<div style="color:#888;">送信済みのメッセージはありません</div>';
+        return;
+      }
+
+      listContainer.innerHTML = '';
+      msgs.forEach(msg => {
+        let dateStr = "日付不明";
+        if(msg.timestamp) {
+          let dateObj = typeof msg.timestamp.toDate === 'function' ? msg.timestamp.toDate() : new Date(msg.timestamp);
+          dateStr = dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+        }
+        
+        const div = document.createElement('div');
+        div.style.cssText = "display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding:5px 0;";
+        
+        let contentStr = `<span style="color:#555;">${dateStr}</span> <strong style="color:#333; margin-left:8px;">${msg.message || '添付ファイルのみ'}</strong>`;
+        if(msg.pdfUrl || msg.fileUrl) contentStr += ` <span style="color:#2980b9; font-weight:bold; margin-left:5px;">[PDF付]</span>`;
+        
+        div.innerHTML = `
+          <div style="flex:1; padding-right:10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${contentStr}</div>
+          <button class="delete-msg-btn" data-id="${msg.id}" data-url="${msg.pdfUrl || msg.fileUrl || ''}" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.9em;">削除</button>
+        `;
+        listContainer.appendChild(div);
+      });
+
+      // 削除ボタンが押されたときの処理
+      document.querySelectorAll('.delete-msg-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const docId = e.target.getAttribute('data-id');
+          const pdfUrl = e.target.getAttribute('data-url');
+          
+          if(confirm("このデータを完全に削除しますか？\n（PDFが添付されている場合は保管庫からも削除されます）")) {
+            e.target.textContent = "削除中...";
+            e.target.disabled = true;
+            try {
+              // PDFが存在する場合はStorageから削除
+              if(pdfUrl) {
+                try {
+                  const fileRef = ref(storage, pdfUrl);
+                  await deleteObject(fileRef);
+                } catch(err) {
+                  console.warn("Storageのファイルが見つかりません（すでに削除されている可能性があります）", err);
+                }
+              }
+              // Firestoreから文字のデータを削除
+              await deleteDoc(doc(db, "teacher_messages", docId));
+              alert("削除が完了しました！");
+              loadSentMessages(currentModalStudentId); // リストを再読み込み
+            } catch(err) {
+              console.error(err);
+              alert("削除に失敗しました。詳細: " + err.message);
+              e.target.textContent = "削除";
+              e.target.disabled = false;
+            }
+          }
+        });
+      });
+
+    } catch(e) {
+      listContainer.innerHTML = '<div style="color:#e74c3c;">読み込みに失敗しました</div>';
+      console.error(e);
+    }
   }
 
   async function initDashboard(forceUpdate = false) {
@@ -241,17 +333,12 @@
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        if (data.action === "学習開始" || data.questionId === "アクセス") {
-            return; 
-        }
+        if (data.action === "学習開始" || data.questionId === "アクセス") return; 
 
         let sId = data.studentId;
         if (sId) {
-          if (sId === "ゲスト" || sId === "guest") {
-            sId = "guest";
-          } else if (!sId.includes('@')) {
-            sId = sId + '@shigaku.local'; 
-          }
+          if (sId === "ゲスト" || sId === "guest") sId = "guest";
+          else if (!sId.includes('@')) sId = sId + '@shigaku.local'; 
         } else {
           sId = "unknown";
         }
@@ -260,22 +347,15 @@
 
         let timestampMs = null;
         if (data.timestamp) {
-            if (typeof data.timestamp.toDate === 'function') {
-                timestampMs = data.timestamp.toDate().getTime(); 
-            } else {
+            if (typeof data.timestamp.toDate === 'function') timestampMs = data.timestamp.toDate().getTime(); 
+            else {
                 const tmpDate = new Date(data.timestamp); 
                 if (!isNaN(tmpDate.getTime())) timestampMs = tmpDate.getTime(); 
             }
         }
 
         if (timestampMs) {
-          allRecentRecords.push({
-             studentId: sId,
-             subject: data.subject || 'その他/不明',
-             unit: data.unit || '',
-             timestampMs: timestampMs
-          });
-
+          allRecentRecords.push({ studentId: sId, subject: data.subject || 'その他/不明', unit: data.unit || '', timestampMs: timestampMs });
           studentMap[sId].count30++;
           if (timestampMs >= sevenDaysAgo.getTime()) studentMap[sId].count7++;
           if (!studentMap[sId].lastActiveMs || timestampMs > studentMap[sId].lastActiveMs) studentMap[sId].lastActiveMs = timestampMs;
@@ -395,19 +475,21 @@
 
       if (top5.length === 0) {
         historyList.innerHTML = '<li style="color:#888;">学習履歴がありません</li>';
-        return;
+      } else {
+        top5.forEach((data) => {
+          const dateObj = new Date(data.timestampMs);
+          const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '不明';
+          const subject = data.subject || '教科不明';
+          const unit = data.unit || '';
+          historyList.innerHTML += `<li><span style="color:#666; font-size:0.9em; margin-right:10px;">${dateStr}</span> <strong>${subject}</strong> <br><span style="font-size:0.9em; color:#444;">${unit}</span></li>`;
+        });
       }
-
-      top5.forEach((data) => {
-        const dateObj = new Date(data.timestampMs);
-        const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '不明';
-        const subject = data.subject || '教科不明';
-        const unit = data.unit || '';
-        historyList.innerHTML += `<li><span style="color:#666; font-size:0.9em; margin-right:10px;">${dateStr}</span> <strong>${subject}</strong> <br><span style="font-size:0.9em; color:#444;">${unit}</span></li>`;
-      });
     } catch (e) {
       console.error(e);
     }
+
+    // ★モーダルを開いたときに、送信済みメッセージを読み込む
+    loadSentMessages(student.id);
   }
 
   document.getElementById('send-msg-btn').addEventListener('click', async () => {
@@ -464,6 +546,9 @@
       msgInput.value = ""; 
       if (pdfInputElement) pdfInputElement.value = ""; 
       if (targetTypeElement) targetTypeElement.value = "individual";
+
+      // ★送信が成功したら、すぐ下のリストを最新状態に更新する
+      loadSentMessages(currentModalStudentId);
 
     } catch (e) {
       console.error(e);
