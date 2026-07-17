@@ -182,52 +182,50 @@ const STUDENT_RECORDS = {
 
 async function loadPersonalMessage(fullEmail) {
     const msgArea = document.getElementById('personal-message-area');
-    
-    // ★ここを修正：STUDENT_RECORDSからオブジェクトとして取得し、.nameを取り出す
     const studentInfo = STUDENT_RECORDS[fullEmail] || { name: fullEmail.split('@')[0], grade: "none" };
-    const displayName = studentInfo.name; 
+    const displayName = studentInfo.name;
     const myGrade = studentInfo.grade;
-    
-    // ...（以下は先ほど修正したコードがそのまま使えます）
-    
-    // 表示用のデフォルトメッセージ
-    const defaultMsg = `<span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${displayName} さん、ようこそ！</strong></span><br><br>志学生学力向上サイト！MyStudy "Myスタ". 反復、反復、定着、定着 → "学力向上"!!<br>You guys, study hard every day. 日々の学習のモチベーションアップにぜひご活用ください！<br>夏休み明けの実力テストに向け、範囲表を参考に計画的に学習していこう。目ざせ自己最高得点!!`;
 
     try {
-      // 自分のメール宛(個別)、または自分の学年宛、または全員(all)宛を探す
-      // ※targetフィールドで検索します
+      // 自分の宛先(個別、学年、全員)のメッセージをすべて取得
       const q = query(collection(db, "teacher_messages"), 
                  where("target", "in", [fullEmail, myGrade, "all"]));
       const querySnapshot = await getDocs(q);
 
-      let latestMsg = null;
-      let latestPdfUrl = null;
-      let latestTime = 0;
-
+      let msgs = [];
       querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        let time = 0;
-        if (data.timestamp) {
-          time = typeof data.timestamp.toDate === 'function' ? data.timestamp.toDate().getTime() : new Date(data.timestamp).getTime();
-        }
-        if (time >= latestTime) {
-          latestTime = time;
-          latestMsg = data.message;
-          latestPdfUrl = data.pdfUrl || data.fileUrl || null;
-        }
+        msgs.push(doc.data());
       });
 
-      if (latestMsg) {
-        let htmlContent = `<span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${displayName} さんへのお知らせ</strong></span><br><br>${latestMsg.replace(/\n/g, '<br>')}`;
-        if (latestPdfUrl) {
-          htmlContent += `<br><br><a href="${latestPdfUrl}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #2a9d8f; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">📄 添付ファイル（PDF）を開く</a>`;
-        }
-        msgArea.innerHTML = htmlContent;
+      // 日付が新しい順に並び替え
+      msgs.sort((a, b) => {
+        let timeA = a.timestamp ? (typeof a.timestamp.toDate === 'function' ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime()) : 0;
+        let timeB = b.timestamp ? (typeof b.timestamp.toDate === 'function' ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime()) : 0;
+        return timeB - timeA;
+      });
+
+      // ★最新5件のみに絞り込む
+      const recentMsgs = msgs.slice(0, 5);
+
+      // 表示用のHTMLを組み立てる
+      let htmlContent = `<span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${displayName} さんへのお知らせ</strong></span><br><br>`;
+      
+      if (recentMsgs.length > 0) {
+        recentMsgs.forEach(msg => {
+          htmlContent += `<div style="border-bottom: 1px solid #eee; padding: 15px 0;">`;
+          htmlContent += `<div style="margin-bottom: 8px;">${msg.message.replace(/\n/g, '<br>')}</div>`;
+          if (msg.pdfUrl) {
+            htmlContent += `<a href="${msg.pdfUrl}" target="_blank" style="display: inline-block; padding: 8px 16px; background-color: #2a9d8f; color: white; text-decoration: none; border-radius: 5px; font-size: 0.85em; font-weight: bold;">📄 添付ファイルを開く</a>`;
+          }
+          htmlContent += `</div>`;
+        });
       } else {
-        msgArea.innerHTML = defaultMsg;
+        htmlContent += `<div>現在お知らせはありません。</div>`;
       }
+      
+      msgArea.innerHTML = htmlContent;
     } catch (e) {
-      msgArea.innerHTML = defaultMsg;
+      msgArea.innerHTML = "読み込みエラー";
     }
   }
 
