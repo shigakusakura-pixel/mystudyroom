@@ -180,7 +180,7 @@ const STUDENT_RECORDS = {
   };
   let currentStudentId = "";
 
-  async function loadPersonalMessage(fullEmail) {
+async function loadPersonalMessage(fullEmail) {
     const msgArea = document.getElementById('personal-message-area');
     // 名簿に登録があれば漢字のフルネームを、なければ@より前を表示
     const displayName = STUDENT_RECORDS[fullEmail] || fullEmail.split('@')[0];
@@ -191,6 +191,7 @@ const STUDENT_RECORDS = {
       const querySnapshot = await getDocs(q);
 
       let latestMsg = null;
+      let latestPdfUrl = null; // ★ここを追加：PDFのURLを入れる箱
       let latestTime = 0;
 
       querySnapshot.forEach((doc) => {
@@ -202,11 +203,22 @@ const STUDENT_RECORDS = {
         if (time >= latestTime) {
           latestTime = time;
           latestMsg = data.message;
+          // ★ここを追加：データベースからPDFのURL（pdfUrl または fileUrl）を取得
+          latestPdfUrl = data.pdfUrl || data.fileUrl || null; 
         }
       });
 
       if (latestMsg) {
-        msgArea.innerHTML = `<span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${displayName} さんへのお知らせ</strong></span><br><br>${latestMsg.replace(/\n/g, '<br>')}`;
+        // ★まずメッセージの文章を作成
+        let htmlContent = `<span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${displayName} さんへのお知らせ</strong></span><br><br>${latestMsg.replace(/\n/g, '<br>')}`;
+        
+        // ★もしPDFのURLが一緒に保存されていれば、青いボタンを付け足す
+        if (latestPdfUrl) {
+          htmlContent += `<br><br><a href="${latestPdfUrl}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #2a9d8f; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">📄 添付ファイル（PDF）を開く</a>`;
+        }
+        
+        // 画面に表示する
+        msgArea.innerHTML = htmlContent;
       } else {
         msgArea.innerHTML = defaultMsg;
       }
