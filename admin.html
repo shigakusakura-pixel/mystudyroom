@@ -140,10 +140,11 @@
       <button id="send-msg-btn" class="send-btn">送信する</button>
       <span id="msg-send-status" style="margin-left: 10px; font-size: 0.85em; color: #e74c3c;"></span>
     </div>
-
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getFirestore, collection, query, where, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  // Storage用のプログラムを追加
+  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBQjnlOfeVvWQJHDxGE9cq-jGsYF3uo0PY",
@@ -156,6 +157,8 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
+  // Storageの初期化を追加
+  const storage = getStorage(app);
 
   const STUDENT_RECORDS = {
     "student001@shigaku.local": "後田 莉乃葉",
@@ -184,6 +187,14 @@
 
   let currentModalStudentId = ""; 
   let allRecentRecords = []; 
+
+  // ★追加: PDFをStorageにアップロードしてURLを取得する関数
+  async function uploadPdfToStorage(file) {
+    const fileName = `${Date.now()}_${file.name}`;
+    const storageRef = ref(storage, `pdfs/${fileName}`);
+    await uploadBytes(storageRef, file);
+    return await getDownloadURL(storageRef);
+  }
 
   async function initDashboard(forceUpdate = false) {
     document.getElementById('loading-view').style.display = 'block';
@@ -234,9 +245,8 @@
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         
-        // ★今回の追加修正：アクセス記録（起動しただけ）のデータは集計から除外する
         if (data.action === "学習開始" || data.questionId === "アクセス") {
-            return; // この行のデータは無視して次に進む
+            return; 
         }
 
         let sId = data.studentId;
@@ -345,6 +355,10 @@
     
     document.getElementById('teacher-msg-input').value = "";
     document.getElementById('msg-send-status').textContent = "";
+    
+    // PDF入力欄のリセット（追加）
+    const pdfInputElement = document.getElementById('pdf-upload-input');
+    if (pdfInputElement) pdfInputElement.value = "";
 
     const subjectsContainer = document.getElementById('modal-subjects-container');
     subjectsContainer.innerHTML = '';
@@ -401,9 +415,13 @@
     }
   }
 
+  // ★変更: メッセージ・PDF送信処理
   document.getElementById('send-msg-btn').addEventListener('click', async () => {
     const msgInput = document.getElementById('teacher-msg-input');
     const statusText = document.getElementById('msg-send-status');
+    const targetTypeElement = document.getElementById('msg-target-type');
+    const pdfInputElement = document.getElementById('pdf-upload-input');
+    
     const message = msgInput.value.trim();
 
     if (!message) {
@@ -412,18 +430,46 @@
     }
 
     statusText.style.color = "#333";
-    statusText.textContent = "送信中...";
+    statusText.textContent = "送信中... (PDF添付時は数秒かかります)";
 
     try {
+      let pdfUrl = null;
+
+      // PDFファイルが選択されていればStorageにアップロード
+      if (pdfInputElement && pdfInputElement.files.length > 0) {
+        const file = pdfInputElement.files[0];
+        if (file.type !== "application/pdf") {
+           statusText.textContent = "エラー：PDFファイルを選択してください。";
+           statusText.style.color = "#e74c3c";
+           return;
+        }
+        pdfUrl = await uploadPdfToStorage(file);
+      }
+
+      // 送信先の設定（個人・学年・全体）
+      let target = currentModalStudentId; 
+      if (targetTypeElement && targetTypeElement.value !== "individual") {
+        target = targetTypeElement.value;
+      }
+
+      // Firestoreへ保存
       await addDoc(collection(db, "teacher_messages"), {
-        studentId: currentModalStudentId,
+        target: target,
+        studentId: currentModalStudentId, // 念のため残す
         message: message,
+        pdfUrl: pdfUrl,
         isRead: false,
         timestamp: serverTimestamp()
       });
+
       statusText.style.color = "#27ae60";
       statusText.textContent = "✅ 送信しました！";
+      
+      // 送信後のクリア
       msgInput.value = ""; 
+      if (pdfInputElement) pdfInputElement.value = ""; 
+      if (targetTypeElement) targetTypeElement.value = "individual";
+
     } catch (e) {
       console.error(e);
       statusText.style.color = "#e74c3c";
