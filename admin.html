@@ -165,28 +165,28 @@
   const db = getFirestore(app);
   const storage = getStorage(app);
 
-  const STUDENT_RECORDS = {
-    "student001@shigaku.local": "後田 莉乃葉",
-    "teacher@shigaku.local": "日野 妙三",
-    "sky@shigaku.local": "Sky",
-    "guest": "ゲストユーザー",
-    "tuji@shigaku.local": "辻 結香",
-    "student003@shigaku.local": "辻 沙香",
-    "student004@shigaku.local": "二ノ宮 愛彩",
-    "student005@shigaku.local": "丸目 妃織",
-    "student006@shigaku.local": "久保 善光",
-    "student007@shigaku.local": "新留 らな",
-    "student008@shigaku.local": "溝口 ゆうか",
-    "student009@shigaku.local": "川原 美桜",
-    "student010@shigaku.local": "藤中 敬斗",
-    "yoshi@shigaku.local": "吉元 碧唯",
-    "student012@shigaku.local": "中 凜華",
-    "student013@shigaku.local": "古川 桜汰",
-    "student014@shigaku.local": "橋元 湧",
-    "student015@shigaku.local": "福薗 賢人",
-    "student016@shigaku.local": "宮崎 玲歩",
-    "student017@shigaku.local": "鮫島 蒼侑",
-    "student018@shigaku.local": "長倉 良介"
+const STUDENT_RECORDS = {
+    "student001@shigaku.local": { name: "後田 莉乃葉", grade: "grade_2" },
+    "tuji@shigaku.local": { name: "辻 結香", grade: "grade_2" },
+    "student003@shigaku.local": { name: "辻 沙香", grade: "grade_1" },
+    "student004@shigaku.local": { name: "二ノ宮 愛彩", grade: "grade_3" },
+    "student005@shigaku.local": { name: "丸目 妃織", grade: "grade_3" },
+    "student006@shigaku.local": { name: "久保 善光", grade: "grade_3" },
+    "student007@shigaku.local": { name: "新留 らな", grade: "grade_3" },
+    "student008@shigaku.local": { name: "溝口 ゆうか", grade: "grade_3" },
+    "student009@shigaku.local": { name: "川原 美桜", grade: "grade_3" },
+    "student010@shigaku.local": { name: "藤中 敬斗", grade: "grade_3" },
+    "yoshi@shigaku.local": { name: "吉元 碧唯", grade: "grade_3" },
+    "student012@shigaku.local": { name: "中 凜華", grade: "grade_3" },
+    "student013@shigaku.local": { name: "古川 桜汰", grade: "grade_3" },
+    "student014@shigaku.local": { name: "橋元 湧", grade: "grade_3" },
+    "student015@shigaku.local": { name: "福薗 賢人", grade: "grade_3" },
+    "student016@shigaku.local": { name: "宮崎 玲歩", grade: "grade_3" },
+    "student017@shigaku.local": { name: "鮫島 蒼侑", grade: "grade_3" },
+    "student018@shigaku.local": { name: "長倉 良介", grade: "grade_3" },
+    "teacher@shigaku.local": { name: "日野 妙三", grade: "all" },
+    "sky@shigaku.local": { name: "Sky", grade: "all" },
+    "guest": { name: "ゲストユーザー", grade: "all" }
   };
   const REGISTERED_STUDENTS = Object.keys(STUDENT_RECORDS);
 
