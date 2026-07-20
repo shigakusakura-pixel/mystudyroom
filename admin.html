@@ -109,7 +109,7 @@
     <h4 style="margin: 15px 0 10px 0; font-size: 1em; color: #333;">📊 教科別バランス（過去30日間）</h4>
     <div id="modal-subjects-container" style="margin-bottom: 20px;"></div>
 
-    <h4 style="margin: 10px 0 5px 0; font-size: 1em; color: #333;">📝 最近の学習履歴（最新5件）</h4>
+    <h4 style="margin: 10px 0 5px 0; font-size: 1em; color: #333;">📝 最近の学習履歴（最新10件）</h4>
     <div id="modal-history-loading" style="font-size: 0.8em; color: #888; display: none;">履歴を読み込み中...</div>
     <div class="recent-logs"><ul id="modal-recent-list"></ul></div>
 
@@ -463,13 +463,13 @@ function sortAndRender(list, key, asc = false) {
          return sId === student.id || sId === shortId || (student.id === "guest" && (sId === "ゲスト" || sId === "guest"));
       });
 
-      myRecords.sort((a, b) => b.timestampMs - a.timestampMs);
-      const top5 = myRecords.slice(0, 5);
+    myRecords.sort((a, b) => b.timestampMs - a.timestampMs);
+      const top10 = myRecords.slice(0, 10); // ★5件から10件に変更
 
-      if (top5.length === 0) {
+      if (top10.length === 0) {
         historyList.innerHTML = '<li style="color:#888;">学習履歴がありません</li>';
       } else {
-        top5.forEach((data) => {
+        top10.forEach((data) => { // ★top5をtop10に変更
           const dateObj = new Date(data.timestampMs);
           const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '不明';
           const subject = data.subject || '教科不明';
