@@ -116,14 +116,26 @@
     <div class="message-box">
       <h4 style="margin: 0 0 10px 0; font-size: 1em; color: #1a2e4a;">💬 メッセージ・プリントを送る</h4>
       
-      <div style="margin-bottom: 10px;">
-        <select id="msg-target-type" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.9em;">
-          <option value="individual">表示中の生徒（個人）</option>
-          <option value="grade_1">中学1年生 全員</option>
-          <option value="grade_2">中学2年生 全員</option>
-          <option value="grade_3">中学3年生 全員</option>
-          <option value="all">生徒全員</option>
-        </select>
+      <div style="margin-bottom: 10px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+        <div>
+          <select id="msg-target-type" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.9em;">
+            <option value="individual">表示中の生徒（個人）</option>
+            <option value="grade_1">中学1年生 全員</option>
+            <option value="grade_2">中学2年生 全員</option>
+            <option value="grade_3">中学3年生 全員</option>
+            <option value="all">生徒全員</option>
+          </select>
+        </div>
+
+        <!-- ★文字色選択ドロップダウン -->
+        <div>
+          <label style="font-size: 0.85em; font-weight: bold; color: #444;">🎨 文字色: </label>
+          <select id="msg-color-select" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.9em; font-weight: bold;">
+            <option value="navy" style="color: #1a5fa8;">🔵 紺色（通常）</option>
+            <option value="black" style="color: #222222;">⚫ 黒色</option>
+            <option value="red" style="color: #e74c3c;">🔴 赤色（重要・強調）</option>
+          </select>
+        </div>
       </div>
 
       <div style="margin-bottom: 12px; padding: 6px 10px; background-color: #ebf5fb; border-left: 4px solid #2980b9; border-radius: 4px;">
@@ -135,21 +147,18 @@
       <button id="send-msg-btn" class="send-btn">送信する</button>
       <span id="msg-send-status" style="margin-left: 10px; font-size: 0.85em; color: #e74c3c;"></span>
       
-      <!-- ★追加機能：送信済みメッセージの管理エリア -->
+      <!-- 送信済みメッセージの管理エリア -->
       <h4 style="margin: 25px 0 10px 0; font-size: 0.95em; color: #1a2e4a; border-top: 1px dashed #ccc; padding-top: 15px;">🗑️ 送信済みメッセージの管理</h4>
       <div id="sent-messages-list" style="font-size: 0.85em; max-height: 150px; overflow-y: auto; background: #fff; border: 1px solid #ccc; padding: 10px; border-radius: 4px;">
         <div style="color:#888;">読み込み中...</div>
       </div>
-
     </div>
   </div>
 </div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  // ★Firestoreの命令に「deleteDoc」と「doc」を追加
   import { getFirestore, collection, query, where, getDocs, addDoc, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-  // ★Storageの命令に「deleteObject」を追加
   import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
   const firebaseConfig = {
@@ -165,7 +174,7 @@
   const db = getFirestore(app);
   const storage = getStorage(app);
 
-const STUDENT_RECORDS = {
+  const STUDENT_RECORDS = {
     "student001@shigaku.local": { name: "後田 莉乃葉", grade: "grade_2" },
     "tuji@shigaku.local": { name: "辻 結香", grade: "grade_1" },
     "student003@shigaku.local": { name: "辻 沙香", grade: "grade_3" },
@@ -201,8 +210,8 @@ const STUDENT_RECORDS = {
     return await getDownloadURL(storageRef);
   }
 
-  // ★追加機能：過去のメッセージを読み込んで表示し、削除できるようにする処理
-async function loadSentMessages(studentId) {
+  // 送信済みメッセージ表示・削除処理
+  async function loadSentMessages(studentId) {
     const listContainer = document.getElementById('sent-messages-list');
     listContainer.innerHTML = '<div style="color:#888;">読み込み中...</div>';
     
@@ -214,8 +223,6 @@ async function loadSentMessages(studentId) {
       let msgs = [];
       querySnapshot.forEach(d => {
         const data = d.data();
-        
-        // ★ここを修正：targetがないデータも考慮し、studentIdで判定する
         const target = data.target || data.studentId; 
         
         if (target === studentId || target === myGrade || target === "all") {
@@ -235,6 +242,14 @@ async function loadSentMessages(studentId) {
       }
 
       listContainer.innerHTML = '';
+      
+      // 文字色指定用のカラーマップ
+      const colorMap = {
+        navy: "#1a5fa8",  // 紺色
+        black: "#222222", // 黒色
+        red: "#e74c3c"    // 赤色
+      };
+
       msgs.forEach(msg => {
         let dateStr = "日付不明";
         if(msg.timestamp) {
@@ -242,13 +257,15 @@ async function loadSentMessages(studentId) {
           dateStr = dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
         }
         
+        const msgColor = colorMap[msg.textColor] || "#1a5fa8";
+
         const div = document.createElement('div');
         div.style.cssText = "display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding:5px 0;";
         
         div.innerHTML = `
           <div style="flex:1; padding-right:10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
             <span style="color:#555;">${dateStr}</span> 
-            <strong style="color:#333; margin-left:5px;">${msg.message || '添付ファイルのみ'}</strong>
+            <strong style="color:${msgColor}; margin-left:5px;">${msg.message || '添付ファイルのみ'}</strong>
           </div>
           <button class="delete-msg-btn" data-id="${msg.id}" data-url="${msg.pdfUrl || ''}" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.9em;">削除</button>
         `;
@@ -376,7 +393,7 @@ async function loadSentMessages(studentId) {
     }
   }
 
-function sortAndRender(list, key, asc = false) {
+  function sortAndRender(list, key, asc = false) {
     list.sort((a, b) => asc ? a[key] - b[key] : b[key] - a[key]);
     const tbody = document.getElementById('student-list');
     tbody.innerHTML = '';
@@ -385,7 +402,6 @@ function sortAndRender(list, key, asc = false) {
       tr.className = 'student-row';
       if (student.count30 === 0) tr.classList.add('zero-activity');
 
-      // ★ここを修正：名簿が新しい形式になったので、.name を指定して取得します
       const studentInfo = STUDENT_RECORDS[student.id];
       const studentName = studentInfo ? studentInfo.name : student.id;
       
@@ -464,13 +480,13 @@ function sortAndRender(list, key, asc = false) {
          return sId === student.id || sId === shortId || (student.id === "guest" && (sId === "ゲスト" || sId === "guest"));
       });
 
-    myRecords.sort((a, b) => b.timestampMs - a.timestampMs);
-      const top10 = myRecords.slice(0, 10); // ★5件から10件に変更
+      myRecords.sort((a, b) => b.timestampMs - a.timestampMs);
+      const top10 = myRecords.slice(0, 10);
 
       if (top10.length === 0) {
         historyList.innerHTML = '<li style="color:#888;">学習履歴がありません</li>';
       } else {
-        top10.forEach((data) => { // ★top5をtop10に変更
+        top10.forEach((data) => {
           const dateObj = new Date(data.timestampMs);
           const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '不明';
           const subject = data.subject || '教科不明';
@@ -482,18 +498,20 @@ function sortAndRender(list, key, asc = false) {
       console.error(e);
     }
 
-    // ★モーダルを開いたときに、送信済みメッセージを読み込む
     loadSentMessages(student.id);
   }
 
+  // 送信処理（色データを含めてFirebaseへ保存）
   document.getElementById('send-msg-btn').addEventListener('click', async () => {
     const msgInput = document.getElementById('teacher-msg-input');
     const statusText = document.getElementById('msg-send-status');
     const targetTypeElement = document.getElementById('msg-target-type');
+    const colorSelectElement = document.getElementById('msg-color-select');
     const pdfInputElement = document.getElementById('pdf-upload-input');
     
     let message = msgInput.value.trim();
     const hasFile = pdfInputElement && pdfInputElement.files.length > 0;
+    const textColor = colorSelectElement ? colorSelectElement.value : 'navy';
 
     if (!message && !hasFile) {
       statusText.textContent = "メッセージを入力するか、PDFを添付してください";
@@ -529,6 +547,7 @@ function sortAndRender(list, key, asc = false) {
         target: target,
         studentId: currentModalStudentId, 
         message: message,
+        textColor: textColor,
         pdfUrl: pdfUrl,
         isRead: false,
         timestamp: serverTimestamp()
@@ -540,8 +559,8 @@ function sortAndRender(list, key, asc = false) {
       msgInput.value = ""; 
       if (pdfInputElement) pdfInputElement.value = ""; 
       if (targetTypeElement) targetTypeElement.value = "individual";
+      if (colorSelectElement) colorSelectElement.value = "navy";
 
-      // ★送信が成功したら、すぐ下のリストを最新状態に更新する
       loadSentMessages(currentModalStudentId);
 
     } catch (e) {
