@@ -154,8 +154,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
   const db = getFirestore(app);
   const auth = getAuth(app);
 
-  // ★ ここに名簿が入っています！生徒を追加する時はこの中に追記してください
-const STUDENT_RECORDS = {
+  const STUDENT_RECORDS = {
     "student001@shigaku.local": { name: "後田 莉乃葉", grade: "grade_2" },
     "tuji@shigaku.local": { name: "辻 結香", grade: "grade_1" },
     "student003@shigaku.local": { name: "辻 沙香", grade: "grade_3" },
@@ -181,14 +180,13 @@ const STUDENT_RECORDS = {
   };
   let currentStudentId = "";
 
-async function loadPersonalMessage(fullEmail) {
+  async function loadPersonalMessage(fullEmail) {
     const msgArea = document.getElementById('personal-message-area');
     const studentInfo = STUDENT_RECORDS[fullEmail] || { name: fullEmail.split('@')[0], grade: "none" };
     const displayName = studentInfo.name;
     const myGrade = studentInfo.grade;
 
-   try {
-      // 自分の宛先(個別、学年、全員)のメッセージをすべて取得
+    try {
       const q = query(collection(db, "teacher_messages"), 
                  where("target", "in", [fullEmail, myGrade, "all"]));
       const querySnapshot = await getDocs(q);
@@ -198,45 +196,6 @@ async function loadPersonalMessage(fullEmail) {
         msgs.push(doc.data());
       });
 
-      // 日付が新しい順に並べ替え
-      msgs.sort((a, b) => {
-        let timeA = a.timestamp ? (typeof a.timestamp.toDate === 'function' ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime()) : 0;
-        let timeB = b.timestamp ? (typeof b.timestamp.toDate === 'function' ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime()) : 0;
-        return timeB - timeA;
-      });
-
-      // ★文字色指定用のカラーマップを定義
-      const colorMap = {
-        navy: "#1a5fa8",  // 紺色（デフォルト）
-        black: "#222222", // 黒色
-        red: "#e74c3c"    // 赤色（重要）
-      };
-
-      // お知らせ表示用HTMLの組み立て
-      const container = document.getElementById('notice-container'); // ※お知らせを表示している枠のID名
-      if (container) {
-        if (msgs.length === 0) {
-          container.innerHTML = '<div style="color:#888;">現在お知らせはありません。</div>';
-        } else {
-          container.innerHTML = msgs.map(msg => {
-            // ★選択された文字色を取得（指定がない過去のデータはデフォルトの紺色 `#1a5fa8`）
-            const applyColor = colorMap[msg.textColor] || "#1a5fa8";
-
-            return `
-              <div style="margin-bottom: 12px; padding: 12px; background: #fff; border-radius: 8px; border: 1px solid #e2e6ee; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-                <p style="font-size: 15px; font-weight: bold; line-height: 1.7; color: ${applyColor}; margin: 0 0 8px 0; white-space: pre-wrap;">
-                  ${msg.message}
-                </p>
-                ${msg.pdfUrl ? `<a href="${msg.pdfUrl}" target="_blank" style="display:inline-block; padding:6px 14px; background:#16a085; color:white; border-radius:4px; text-decoration:none; font-size:13px; font-weight:bold;">📄 添付ファイルを開く</a>` : ''}
-              </div>
-            `;
-          }).join('');
-        }
-      }
-    } catch (e) {
-      console.error("メッセージ取得エラー:", e);
-    }
-
       // 日付が新しい順に並び替え
       msgs.sort((a, b) => {
         let timeA = a.timestamp ? (typeof a.timestamp.toDate === 'function' ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime()) : 0;
@@ -244,16 +203,23 @@ async function loadPersonalMessage(fullEmail) {
         return timeB - timeA;
       });
 
-      // ★最新5件のみに絞り込む
+      // 文字色変換（紺・黒・赤）
+      const colorMap = {
+        navy: "#004098",  // 紺色（デフォルト）
+        black: "#222222", // 黒色
+        red: "#e74c3c"    // 赤色（重要）
+      };
+
       const recentMsgs = msgs.slice(0, 5);
 
-      // 表示用のHTMLを組み立てる
       let htmlContent = `<span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${displayName} さんへのお知らせ</strong></span><br><br>`;
       
       if (recentMsgs.length > 0) {
         recentMsgs.forEach(msg => {
+          const applyColor = colorMap[msg.textColor] || "#004098";
+
           htmlContent += `<div style="border-bottom: 1px solid #eee; padding: 15px 0;">`;
-          htmlContent += `<div style="margin-bottom: 8px;">${msg.message.replace(/\n/g, '<br>')}</div>`;
+          htmlContent += `<div style="margin-bottom: 8px; font-weight: bold; color: ${applyColor};">${msg.message.replace(/\n/g, '<br>')}</div>`;
           if (msg.pdfUrl) {
             htmlContent += `<a href="${msg.pdfUrl}" target="_blank" style="display: inline-block; padding: 8px 16px; background-color: #2a9d8f; color: white; text-decoration: none; border-radius: 5px; font-size: 0.85em; font-weight: bold;">📄 添付ファイルを開く</a>`;
           }
@@ -265,6 +231,7 @@ async function loadPersonalMessage(fullEmail) {
       
       msgArea.innerHTML = htmlContent;
     } catch (e) {
+      console.error(e);
       msgArea.innerHTML = "読み込みエラー";
     }
   }
