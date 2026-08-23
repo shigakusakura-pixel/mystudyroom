@@ -209,7 +209,19 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getFirestore, collection, query, where, getDocs, addDoc, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
-
+  import { 
+  getFirestore, 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  addDoc, 
+  serverTimestamp, 
+  deleteDoc, 
+  doc,
+  orderBy,  // ← 追加
+  limit     // ← 追加
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";  
   const firebaseConfig = {
     apiKey: "AIzaSyBQjnlOfeVvWQJHDxGE9cq-jGsYF3uo0PY",
     authDomain: "mystudy-portal.firebaseapp.com",
@@ -626,154 +638,137 @@
 
   initDashboard(false);
 // ==========================================
-// 社会クエスト管理用データ取得・描画（安全版）
+// 社会クエスト管理用データ取得・描画（v10 モジュール対応版）
 // ==========================================
-(function() {
-  // 既存のFirestoreインスタンスを確実に取得
-  function getFirestoreInstance() {
-    if (typeof db !== "undefined" && db && typeof db.collection === "function") return db;
-    if (typeof firestore !== "undefined" && firestore && typeof firestore.collection === "function") return firestore;
-    if (typeof firebase !== "undefined" && firebase.firestore) return firebase.firestore();
-    return null;
-  }
 
-  // 直近の解答ログ取得（最新50件を降順で自動表示）
-  async function loadSocialLogs() {
-    const firestoreDb = getFirestoreInstance();
-    const tbody = document.getElementById("social-logs-tbody");
-    if (!tbody) return;
+// 1. 直近の解答ログ取得（最新50件を降順で自動表示）
+async function loadSocialLogs() {
+  const tbody = document.getElementById("social-logs-tbody");
+  if (!tbody) return;
 
-    if (!firestoreDb) {
-      console.warn("Firestore instance not found yet for logs");
-      tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #DC2626;">データベースの初期化を待機中...</td></tr>`;
+  try {
+    const q = query(
+      collection(db, "learning_records"),
+      where("subject", "==", "社会"),
+      orderBy("timestamp", "desc"),
+      limit(50)
+    );
+    const snap = await getDocs(q);
+
+    if (snap.empty) {
+      tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #94A3B8;">該当する学習ログはありません。</td></tr>`;
       return;
     }
 
-    try {
-      const snap = await firestoreDb.collection("learning_records")
-        .where("subject", "==", "社会")
-        .orderBy("timestamp", "desc")
-        .limit(50)
-        .get();
+    tbody.innerHTML = snap.docs.map(dDoc => {
+      const d = dDoc.data();
+      const dateStr = d.accessedAt ? new Date(d.accessedAt).toLocaleString("ja-JP") : "-";
+      const student = (d.studentId || "不明").replace("@shigaku.local", "");
+      const topic = d.topic || "単元テスト";
+      const scoreText = `${d.score} / ${d.totalQuestions}`;
+      const acc = d.accuracy !== undefined ? `${d.accuracy}%` : "-";
+      const badgeColor = d.accuracy >= 80 ? "#15803D" : (d.accuracy >= 50 ? "#D97706" : "#DC2626");
 
-      if (snap.empty) {
-        tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #94A3B8;">該当する学習ログはありません。</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = snap.docs.map(doc => {
-        const d = doc.data();
-        const dateStr = d.accessedAt ? new Date(d.accessedAt).toLocaleString("ja-JP") : "-";
-        const student = (d.studentId || "不明").replace("@shigaku.local", "");
-        const topic = d.topic || "単元テスト";
-        const scoreText = `${d.score} / ${d.totalQuestions}`;
-        const acc = d.accuracy !== undefined ? `${d.accuracy}%` : "-";
-        const badgeColor = d.accuracy >= 80 ? "#15803D" : (d.accuracy >= 50 ? "#D97706" : "#DC2626");
-
-        return `
-          <tr style="border-bottom: 1px solid #E2E8F0;">
-            <td style="padding: 10px; color: #64748B; font-size: 0.8rem;">${dateStr}</td>
-            <td style="padding: 10px; font-weight: bold; color: #0F3875;">${student}</td>
-            <td style="padding: 10px;">${topic}</td>
-            <td style="padding: 10px; font-weight: bold;">${scoreText}</td>
-            <td style="padding: 10px; font-weight: bold; color: ${badgeColor};">${acc}</td>
-          </tr>
-        `;
-      }).join("");
-    } catch (err) {
-      console.error("Logs load error:", err);
-      tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #DC2626;">ログの読み込みに失敗しました。</td></tr>`;
-    }
+      return `
+        <tr style="border-bottom: 1px solid #E2E8F0;">
+          <td style="padding: 10px; color: #64748B; font-size: 0.8rem;">${dateStr}</td>
+          <td style="padding: 10px; font-weight: bold; color: #0F3875;">${student}</td>
+          <td style="padding: 10px;">${topic}</td>
+          <td style="padding: 10px; font-weight: bold;">${scoreText}</td>
+          <td style="padding: 10px; font-weight: bold; color: ${badgeColor};">${acc}</td>
+        </tr>
+      `;
+    }).join("");
+  } catch (err) {
+    console.error("Logs load error:", err);
+    tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #DC2626;">ログの読み込みに失敗しました。</td></tr>`;
   }
+}
 
-  // 生徒別クリア進捗・メダル状況取得
-  async function loadSocialSummary() {
-    const firestoreDb = getFirestoreInstance();
-    const tbody = document.getElementById("social-summary-tbody");
-    if (!tbody) return;
+// 2. 生徒別クリア進捗・メダル状況取得
+async function loadSocialSummary() {
+  const tbody = document.getElementById("social-summary-tbody");
+  if (!tbody) return;
 
-    if (!firestoreDb) {
-      console.warn("Firestore instance not found yet for summary");
-      tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #DC2626;">データベースの初期化を待機中...</td></tr>`;
+  try {
+    const snap = await getDocs(collection(db, "quest_progress"));
+
+    if (snap.empty) {
+      tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #94A3B8;">進行データがありません。</td></tr>`;
       return;
     }
 
-    try {
-      const snap = await firestoreDb.collection("quest_progress").get();
-
-      if (snap.empty) {
-        tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #94A3B8;">進行データがありません。</td></tr>`;
-        return;
+    tbody.innerHTML = snap.docs.map(dDoc => {
+      const d = dDoc.data();
+      const student = (d.studentId || dDoc.id).replace("@shigaku.local", "");
+      const clearedCount = Array.isArray(d.clearedUnits) ? d.clearedUnits.length : 0;
+      
+      let medalsCount = 0;
+      if (d.medals && typeof d.medals === "object") {
+        Object.values(d.medals).forEach(v => { if (v) medalsCount++; });
       }
+      
+      const weakCount = Array.isArray(d.weakQuestions) ? d.weakQuestions.length : 0;
+      const lastDate = d.lastAccessed && d.lastAccessed.toDate ? d.lastAccessed.toDate().toLocaleString("ja-JP") : "-";
 
-      tbody.innerHTML = snap.docs.map(doc => {
-        const d = doc.data();
-        const student = (d.studentId || doc.id).replace("@shigaku.local", "");
-        const clearedCount = Array.isArray(d.clearedUnits) ? d.clearedUnits.length : 0;
-        
-        let medalsCount = 0;
-        if (d.medals && typeof d.medals === "object") {
-          Object.values(d.medals).forEach(v => { if (v) medalsCount++; });
-        }
-        
-        const weakCount = Array.isArray(d.weakQuestions) ? d.weakQuestions.length : 0;
-        const lastDate = d.lastAccessed && d.lastAccessed.toDate ? d.lastAccessed.toDate().toLocaleString("ja-JP") : "-";
+      return `
+        <tr style="border-bottom: 1px solid #E2E8F0;">
+          <td style="padding: 10px; font-weight: bold; color: #0F3875;">${student}</td>
+          <td style="padding: 10px;"><span style="font-weight: bold; color: #2563EB;">${clearedCount}</span> 単元</td>
+          <td style="padding: 10px;"><span style="font-weight: bold; color: #D97706;">${medalsCount}</span> / 4 個</td>
+          <td style="padding: 10px;"><span style="color: ${weakCount > 0 ? '#DC2626' : '#15803D'}; font-weight: bold;">${weakCount}</span> 問</td>
+          <td style="padding: 10px; color: #64748B; font-size: 0.8rem;">${lastDate}</td>
+        </tr>
+      `;
+    }).join("");
+  } catch (err) {
+    console.error("Summary load error:", err);
+    tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #DC2626;">サマリーの読み込みに失敗しました。</td></tr>`;
+  }
+}
 
-        return `
-          <tr style="border-bottom: 1px solid #E2E8F0;">
-            <td style="padding: 10px; font-weight: bold; color: #0F3875;">${student}</td>
-            <td style="padding: 10px;"><span style="font-weight: bold; color: #2563EB;">${clearedCount}</span> 単元</td>
-            <td style="padding: 10px;"><span style="font-weight: bold; color: #D97706;">${medalsCount}</span> / 4 個</td>
-            <td style="padding: 10px;"><span style="color: ${weakCount > 0 ? '#DC2626' : '#15803D'}; font-weight: bold;">${weakCount}</span> 問</td>
-            <td style="padding: 10px; color: #64748B; font-size: 0.8rem;">${lastDate}</td>
-          </tr>
-        `;
-      }).join("");
-    } catch (err) {
-      console.error("Summary load error:", err);
-      tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #DC2626;">サマリーの読み込みに失敗しました。</td></tr>`;
+// HTML上のボタンから呼び出せるように window にバインド
+window.loadSocialQuestAdminData = async function() {
+  await Promise.all([loadSocialLogs(), loadSocialSummary()]);
+};
+
+window.switchSocialTab = function(tab) {
+  const isLogs = tab === "logs";
+  const logView = document.getElementById("view-social-logs");
+  const sumView = document.getElementById("view-social-summary");
+  const btnLogs = document.getElementById("tab-btn-logs");
+  const btnSum = document.getElementById("tab-btn-summary");
+
+  if (logView) logView.style.display = isLogs ? "block" : "none";
+  if (sumView) sumView.style.display = isLogs ? "none" : "block";
+
+  if (btnLogs && btnSum) {
+    if (isLogs) {
+      btnLogs.style.background = "#0F3875";
+      btnLogs.style.color = "#fff";
+      btnLogs.style.borderColor = "#0F3875";
+      btnSum.style.background = "#F8FAFC";
+      btnSum.style.color = "#64748B";
+      btnSum.style.borderColor = "#CBD5E1";
+    } else {
+      btnSum.style.background = "#0F3875";
+      btnSum.style.color = "#fff";
+      btnSum.style.borderColor = "#0F3875";
+      btnLogs.style.background = "#F8FAFC";
+      btnLogs.style.color = "#64748B";
+      btnLogs.style.borderColor = "#CBD5E1";
     }
   }
+};
 
-  // HTMLの onclick から呼べるように window に登録
-  window.loadSocialQuestAdminData = async function() {
-    await Promise.all([loadSocialLogs(), loadSocialSummary()]);
-  };
+// 初回データ読み込み
+window.loadSocialQuestAdminData();
 
-  window.switchSocialTab = function(tab) {
-    const isLogs = tab === "logs";
-    const logView = document.getElementById("view-social-logs");
-    const sumView = document.getElementById("view-social-summary");
-    const btnLogs = document.getElementById("tab-btn-logs");
-    const btnSum = document.getElementById("tab-btn-summary");
-
-    if (logView) logView.style.display = isLogs ? "block" : "none";
-    if (sumView) sumView.style.display = isLogs ? "none" : "block";
-
-    if (btnLogs && btnSum) {
-      if (isLogs) {
-        btnLogs.style.background = "#0F3875";
-        btnLogs.style.color = "#fff";
-        btnLogs.style.borderColor = "#0F3875";
-        btnSum.style.background = "#F8FAFC";
-        btnSum.style.color = "#64748B";
-        btnSum.style.borderColor = "#CBD5E1";
-      } else {
-        btnSum.style.background = "#0F3875";
-        btnSum.style.color = "#fff";
-        btnSum.style.borderColor = "#0F3875";
-        btnLogs.style.background = "#F8FAFC";
-        btnLogs.style.color = "#64748B";
-        btnLogs.style.borderColor = "#CBD5E1";
-      }
-    }
-  };
-
-  // Firebase初期化完了のタイミングに合わせて実行（遅延実行）
-  setTimeout(() => {
-    window.loadSocialQuestAdminData();
-  }, 1000);
-})();
+// 30分ごとの自動定期更新タイマー (30分 = 1800000ミリ秒)
+setInterval(() => {
+  console.log("30分ごとの社会クエストデータ定期更新を実行中...");
+  window.loadSocialQuestAdminData();
+}, 30 * 60 * 1000);
 </script>
 </body>
 </html>
