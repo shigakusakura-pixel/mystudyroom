@@ -86,7 +86,56 @@
     <tbody id="student-list"></tbody>
   </table>
 </div>
+<!-- 社会クエスト 学習進捗・ログ一覧エリア -->
+<div class="admin-card" style="margin-top: 24px; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <h3 style="margin: 0; color: #0F3875;">🗺️ 志学社会クエスト 学習進捗・直近ログ</h3>
+    <button onclick="loadSocialQuestAdminData()" style="padding: 6px 14px; background: #0F3875; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">🔄 最新に更新</button>
+  </div>
 
+  <!-- タブ切替 -->
+  <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+    <button id="tab-btn-logs" onclick="switchSocialTab('logs')" style="padding: 6px 12px; font-weight: bold; border-radius: 6px; border: 1px solid #0F3875; background: #0F3875; color: #fff; cursor: pointer;">直近の解答ログ</button>
+    <button id="tab-btn-summary" onclick="switchSocialTab('summary')" style="padding: 6px 12px; font-weight: bold; border-radius: 6px; border: 1px solid #CBD5E1; background: #F8FAFC; color: #64748B; cursor: pointer;">生徒別クリア進捗・メダル</button>
+  </div>
+
+  <!-- ① 解答ログ一覧テーブル -->
+  <div id="view-social-logs" style="overflow-x: auto;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
+      <thead>
+        <tr style="background: #F1F5F9; color: #334155; border-bottom: 2px solid #CBD5E1;">
+          <th style="padding: 10px;">日時</th>
+          <th style="padding: 10px;">生徒ID</th>
+          <th style="padding: 10px;">単元名・モード</th>
+          <th style="padding: 10px;">得点 / 問題数</th>
+          <th style="padding: 10px;">正答率</th>
+        </tr>
+      </thead>
+      <tbody id="social-logs-tbody">
+        <tr><td colspan="5" style="padding: 16px; text-align: center; color: #94A3B8;">読み込み中...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ② 生徒別サマリーテーブル -->
+  <div id="view-social-summary" style="overflow-x: auto; display: none;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
+      <thead>
+        <tr style="background: #F1F5F9; color: #334155; border-bottom: 2px solid #CBD5E1;">
+          <th style="padding: 10px;">生徒ID</th>
+          <th style="padding: 10px;">クリア単元数</th>
+          <th style="padding: 10px;">獲得メダル</th>
+          <th style="padding: 10px;">苦手問題数</th>
+          <th style="padding: 10px;">最終アクセス</th>
+        </tr>
+      </thead>
+      <tbody id="social-summary-tbody">
+        <tr><td colspan="5" style="padding: 16px; text-align: center; color: #94A3B8;">読み込み中...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+  
 <div id="student-modal" class="modal-overlay">
   <div class="modal-content">
     <span class="modal-close" id="modal-close-btn">&times;</span>
@@ -576,6 +625,128 @@
   });
 
   initDashboard(false);
+  // ==========================================
+// 社会クエスト管理用データ取得・描画
+// ==========================================
+async function loadSocialQuestAdminData() {
+  await Promise.all([loadSocialLogs(), loadSocialSummary()]);
+}
+
+// 1. 直近の解答ログ取得（最新50件を降順で自動表示）
+async function loadSocialLogs() {
+  const tbody = document.getElementById("social-logs-tbody");
+  if (!tbody) return;
+
+  try {
+    const snap = await db.collection("learning_records")
+      .where("subject", "==", "社会")
+      .orderBy("timestamp", "desc")
+      .limit(50)
+      .get();
+
+    if (snap.empty) {
+      tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #94A3B8;">該当する学習ログはありません。</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = snap.docs.map(doc => {
+      const d = doc.data();
+      const dateStr = d.accessedAt ? new Date(d.accessedAt).toLocaleString("ja-JP") : "-";
+      const student = (d.studentId || "不明").replace("@shigaku.local", "");
+      const topic = d.topic || "単元テスト";
+      const scoreText = `${d.score} / ${d.totalQuestions}`;
+      const acc = d.accuracy !== undefined ? `${d.accuracy}%` : "-";
+      const badgeColor = d.accuracy >= 80 ? "#15803D" : (d.accuracy >= 50 ? "#D97706" : "#DC2626");
+
+      return `
+        <tr style="border-bottom: 1px solid #E2E8F0;">
+          <td style="padding: 10px; color: #64748B; font-size: 0.8rem;">${dateStr}</td>
+          <td style="padding: 10px; font-weight: bold; color: #0F3875;">${student}</td>
+          <td style="padding: 10px;">${topic}</td>
+          <td style="padding: 10px; font-weight: bold;">${scoreText}</td>
+          <td style="padding: 10px; font-weight: bold; color: ${badgeColor};">${acc}</td>
+        </tr>
+      `;
+    }).join("");
+  } catch (err) {
+    console.error("Logs load error:", err);
+    tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #DC2626;">ログの読み込みに失敗しました。</td></tr>`;
+  }
+}
+
+// 2. 生徒別クリア進捗・メダル状況取得
+async function loadSocialSummary() {
+  const tbody = document.getElementById("social-summary-tbody");
+  if (!tbody) return;
+
+  try {
+    const snap = await db.collection("quest_progress").get();
+
+    if (snap.empty) {
+      tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #94A3B8;">進行データがありません。</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = snap.docs.map(doc => {
+      const d = doc.data();
+      const student = (d.studentId || doc.id).replace("@shigaku.local", "");
+      const clearedCount = Array.isArray(d.clearedUnits) ? d.clearedUnits.length : 0;
+      
+      // メダル計算
+      let medalsCount = 0;
+      if (d.medals && typeof d.medals === "object") {
+        Object.values(d.medals).forEach(v => { if (v) medalsCount++; });
+      }
+      
+      const weakCount = Array.isArray(d.weakQuestions) ? d.weakQuestions.length : 0;
+      const lastDate = d.lastAccessed && d.lastAccessed.toDate ? d.lastAccessed.toDate().toLocaleString("ja-JP") : "-";
+
+      return `
+        <tr style="border-bottom: 1px solid #E2E8F0;">
+          <td style="padding: 10px; font-weight: bold; color: #0F3875;">${student}</td>
+          <td style="padding: 10px;"><span style="font-weight: bold; color: #2563EB;">${clearedCount}</span> 単元</td>
+          <td style="padding: 10px;"><span style="font-weight: bold; color: #D97706;">${medalsCount}</span> / 4 個</td>
+          <td style="padding: 10px;"><span style="color: ${weakCount > 0 ? '#DC2626' : '#15803D'}; font-weight: bold;">${weakCount}</span> 問</td>
+          <td style="padding: 10px; color: #64748B; font-size: 0.8rem;">${lastDate}</td>
+        </tr>
+      `;
+    }).join("");
+  } catch (err) {
+    console.error("Summary load error:", err);
+    tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #DC2626;">サマリーの読み込みに失敗しました。</td></tr>`;
+  }
+}
+
+// タブ切り替え関数
+function switchSocialTab(tab) {
+  const isLogs = tab === "logs";
+  document.getElementById("view-social-logs").style.display = isLogs ? "block" : "none";
+  document.getElementById("view-social-summary").style.display = isLogs ? "none" : "block";
+
+  const btnLogs = document.getElementById("tab-btn-logs");
+  const btnSum = document.getElementById("tab-btn-summary");
+
+  if (isLogs) {
+    btnLogs.style.background = "#0F3875";
+    btnLogs.style.color = "#fff";
+    btnLogs.style.borderColor = "#0F3875";
+    btnSum.style.background = "#F8FAFC";
+    btnSum.style.color = "#64748B";
+    btnSum.style.borderColor = "#CBD5E1";
+  } else {
+    btnSum.style.background = "#0F3875";
+    btnSum.style.color = "#fff";
+    btnSum.style.borderColor = "#0F3875";
+    btnLogs.style.background = "#F8FAFC";
+    btnLogs.style.color = "#64748B";
+    btnLogs.style.borderColor = "#CBD5E1";
+  }
+}
+
+// 画面読み込み時に自動実行
+document.addEventListener("DOMContentLoaded", () => {
+  loadSocialQuestAdminData();
+});
 </script>
 </body>
 </html>
