@@ -640,42 +640,47 @@
 // ==========================================
 // 社会クエスト管理用データ取得・描画（v10 モジュール対応版）
 // ==========================================
-// 1. 直近の解答ログ取得（インデックス不要・確実表示版）
+// 1. 直近の解答ログ取得（quest_logs から最新データを確実に取得）
 async function loadSocialLogs() {
   const tbody = document.getElementById("social-logs-tbody");
   if (!tbody) return;
 
   try {
-    // インデックスエラーを回避するため、単一条件で取得
-    const q = query(
-      collection(db, "learning_records"),
-      where("subject", "==", "社会")
-    );
-    const snap = await getDocs(q);
+    // quest_logs コレクションから全件取得
+    const snap = await getDocs(collection(db, "quest_logs"));
 
     if (snap.empty) {
       tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #94A3B8;">該当する学習ログはありません。</td></tr>`;
       return;
     }
 
-    // 取得したデータをJavaScript側で最新日時順（降順）にソート
+    // JavaScript側でタイムスタンプ降順にソート（インデックスエラー完全回避）
     const records = snap.docs.map(dDoc => dDoc.data());
     records.sort((a, b) => {
-      const timeA = a.accessedAt ? new Date(a.accessedAt).getTime() : (a.timestamp?.seconds ? a.timestamp.seconds * 1000 : 0);
-      const timeB = b.accessedAt ? new Date(b.accessedAt).getTime() : (b.timestamp?.seconds ? b.timestamp.seconds * 1000 : 0);
+      const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.timestamp ? new Date(a.timestamp).getTime() : 0);
+      const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : (b.timestamp ? new Date(b.timestamp).getTime() : 0);
       return timeB - timeA;
     });
 
-    // 最新50件のみを描画
+    // 最新50件を描画
     const displayRecords = records.slice(0, 50);
 
     tbody.innerHTML = displayRecords.map(d => {
-      const dateStr = d.accessedAt ? new Date(d.accessedAt).toLocaleString("ja-JP") : "-";
+      let dateStr = "-";
+      if (d.timestamp?.toDate) {
+        dateStr = d.timestamp.toDate().toLocaleString("ja-JP", { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+      } else if (d.timestamp) {
+        dateStr = new Date(d.timestamp).toLocaleString("ja-JP", { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+      }
+
       const student = (d.studentId || "不明").replace("@shigaku.local", "");
-      const topic = d.topic || "単元テスト";
-      const scoreText = `${d.score} / ${d.totalQuestions}`;
-      const acc = d.accuracy !== undefined ? `${d.accuracy}%` : "-";
-      const badgeColor = d.accuracy >= 80 ? "#15803D" : (d.accuracy >= 50 ? "#D97706" : "#DC2626");
+      const topic = d.quizTitle || d.chapterKey || "単元テスト";
+      const totalQ = d.total || d.totalQuestions || 10;
+      const score = d.score !== undefined ? d.score : 0;
+      const scoreText = `${score} / ${totalQ} 点`;
+
+      const accPercent = Math.round((score / totalQ) * 100);
+      const badgeColor = accPercent >= 80 ? "#15803D" : (accPercent >= 50 ? "#D97706" : "#DC2626");
 
       return `
         <tr style="border-bottom: 1px solid #E2E8F0;">
@@ -683,7 +688,7 @@ async function loadSocialLogs() {
           <td style="padding: 10px; font-weight: bold; color: #0F3875;">${student}</td>
           <td style="padding: 10px;">${topic}</td>
           <td style="padding: 10px; font-weight: bold;">${scoreText}</td>
-          <td style="padding: 10px; font-weight: bold; color: ${badgeColor};">${acc}</td>
+          <td style="padding: 10px; font-weight: bold; color: ${badgeColor};">${accPercent}%</td>
         </tr>
       `;
     }).join("");
@@ -692,7 +697,6 @@ async function loadSocialLogs() {
     tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #DC2626;">ログの読み込みに失敗しました。</td></tr>`;
   }
 }
-
 
 // 2. 生徒別クリア進捗・メダル状況取得
 async function loadSocialSummary() {
