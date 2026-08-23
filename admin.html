@@ -640,18 +640,16 @@
 // ==========================================
 // 社会クエスト管理用データ取得・描画（v10 モジュール対応版）
 // ==========================================
-
-// 1. 直近の解答ログ取得（最新50件を降順で自動表示）
+// 1. 直近の解答ログ取得（インデックス不要・確実表示版）
 async function loadSocialLogs() {
   const tbody = document.getElementById("social-logs-tbody");
   if (!tbody) return;
 
   try {
+    // インデックスエラーを回避するため、単一条件で取得
     const q = query(
       collection(db, "learning_records"),
-      where("subject", "==", "社会"),
-      orderBy("timestamp", "desc"),
-      limit(50)
+      where("subject", "==", "社会")
     );
     const snap = await getDocs(q);
 
@@ -660,8 +658,18 @@ async function loadSocialLogs() {
       return;
     }
 
-    tbody.innerHTML = snap.docs.map(dDoc => {
-      const d = dDoc.data();
+    // 取得したデータをJavaScript側で最新日時順（降順）にソート
+    const records = snap.docs.map(dDoc => dDoc.data());
+    records.sort((a, b) => {
+      const timeA = a.accessedAt ? new Date(a.accessedAt).getTime() : (a.timestamp?.seconds ? a.timestamp.seconds * 1000 : 0);
+      const timeB = b.accessedAt ? new Date(b.accessedAt).getTime() : (b.timestamp?.seconds ? b.timestamp.seconds * 1000 : 0);
+      return timeB - timeA;
+    });
+
+    // 最新50件のみを描画
+    const displayRecords = records.slice(0, 50);
+
+    tbody.innerHTML = displayRecords.map(d => {
       const dateStr = d.accessedAt ? new Date(d.accessedAt).toLocaleString("ja-JP") : "-";
       const student = (d.studentId || "不明").replace("@shigaku.local", "");
       const topic = d.topic || "単元テスト";
@@ -684,6 +692,7 @@ async function loadSocialLogs() {
     tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #DC2626;">ログの読み込みに失敗しました。</td></tr>`;
   }
 }
+
 
 // 2. 生徒別クリア進捗・メダル状況取得
 async function loadSocialSummary() {
