@@ -330,10 +330,24 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
       msgArea.innerHTML = "読み込みエラー";
     }
   }
+// ログアウト処理の登録
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        await signOut(auth);
+        console.log("ログアウトしました");
+      } catch (err) {
+        console.error("ログアウトエラー:", err);
+      }
+    });
+  }
 
-// ログイン状態の監視
+  // ログイン状態の監視
   onAuthStateChanged(auth, (user) => {
-    document.getElementById('loading-wrapper').style.display = 'none'; 
+    const loadingWrapper = document.getElementById('loading-wrapper');
+    if (loadingWrapper) loadingWrapper.style.display = 'none'; 
     
     if (user) {
       currentStudentId = user.email;
@@ -342,27 +356,34 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
       // ★ 最重要：ログイン成功時に、画面内のすべての教材ボタンに ?student=〇〇 を直接セットする
       document.querySelectorAll('a').forEach(link => {
         const href = link.getAttribute('href');
-        if (href && !href.startsWith('#') && !href.startsWith('javascript:') && link.id !== 'logout-btn') {
+     if (href && !href.startsWith('#') && !href.startsWith('javascript:') && link.id !== 'logout-btn') {
           if (!href.includes('shigaku-mystudy.com')) { // 動画サイト以外
-            const baseHref = href.split('?')[0]; // 既存のパラメータを一旦リセット
+            const baseHref = href.split('?')[0]; // 既存パラメータを一旦クリア
             link.href = `${baseHref}?student=${encodeURIComponent(sId)}`;
           }
         }
       });
 
-      document.getElementById('login-wrapper').style.display = 'none';
-      document.getElementById('portal-content').style.display = 'block';
-      document.getElementById('logout-btn').style.display = 'block'; 
-      loadPersonalMessage(currentStudentId);
+      const loginWrapper = document.getElementById('login-wrapper');
+      const portalContent = document.getElementById('portal-content');
+      if (loginWrapper) loginWrapper.style.display = 'none';
+      if (portalContent) portalContent.style.display = 'block';
+      if (logoutBtn) logoutBtn.style.display = 'block'; 
+      
+      if (typeof loadPersonalMessage === 'function') {
+        loadPersonalMessage(currentStudentId);
+      }
     } else {
       currentStudentId = "";
-      document.getElementById('portal-content').style.display = 'none';
-      document.getElementById('logout-btn').style.display = 'none'; 
-      document.getElementById('login-wrapper').style.display = 'flex';
+      const loginWrapper = document.getElementById('login-wrapper');
+      const portalContent = document.getElementById('portal-content');
+      if (portalContent) portalContent.style.display = 'none';
+      if (logoutBtn) logoutBtn.style.display = 'none'; 
+      if (loginWrapper) loginWrapper.style.display = 'flex';
     }
   });
 
-  // 動画サイトの視聴記録のみを検知するクリック処理
+  // 授業動画サイトの視聴記録クリック検知
   document.addEventListener('click', async (e) => {
     const link = e.target.closest('a');
     if (!link) return;
