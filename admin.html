@@ -424,17 +424,19 @@
             }
         }
 
+// ▼ 変更後
         if (timestampMs) {
-          allRecentRecords.push({ studentId: sId, subject: data.subject || 'その他/不明', unit: data.unit || '', timestampMs: timestampMs });
+          allRecentRecords.push({ 
+            studentId: sId, 
+            subject: data.subject || 'その他/不明', 
+            unit: data.unit || '', 
+            correct: data.correct,
+            total: data.total,
+            duration: data.duration, // 所要時間（秒）を保存
+            timestampMs: timestampMs 
+          });
           studentMap[sId].count30++;
-          if (timestampMs >= sevenDaysAgo.getTime()) studentMap[sId].count7++;
-          if (!studentMap[sId].lastActiveMs || timestampMs > studentMap[sId].lastActiveMs) studentMap[sId].lastActiveMs = timestampMs;
-          
-          const subjectName = data.subject || 'その他/不明';
-          if (!studentMap[sId].subjects[subjectName]) studentMap[sId].subjects[subjectName] = 0;
-          studentMap[sId].subjects[subjectName]++;
-        }
-      });
+// ...
 
       const nowMs = Date.now();
       localStorage.setItem('mystudy_cache_time', nowMs.toString());
