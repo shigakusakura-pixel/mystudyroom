@@ -495,7 +495,7 @@
   closeBtn.onclick = () => modal.style.display = "none";
   window.onclick = (event) => { if (event.target == modal) modal.style.display = "none"; }
 
-  function openStudentModal(student, studentName) {
+function openStudentModal(student, studentName) {
     currentModalStudentId = student.id; 
     
     document.getElementById('modal-name').textContent = studentName;
@@ -555,7 +555,33 @@
           const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '不明';
           const subject = data.subject || '教科不明';
           const unit = data.unit || '';
-          historyList.innerHTML += `<li><span style="color:#666; font-size:0.9em; margin-right:10px;">${dateStr}</span> <strong>${subject}</strong> <br><span style="font-size:0.9em; color:#444;">${unit}</span></li>`;
+
+          // 所要時間の整形
+          let timeBadge = '';
+          if (data.duration && !isNaN(data.duration)) {
+            const m = Math.floor(data.duration / 60);
+            const s = data.duration % 60;
+            const timeText = m > 0 ? `${m}分${s}秒` : `${s}秒`;
+            const isTooFast = data.duration < 30;
+            timeBadge = `<span style="font-size:0.85em; font-weight:bold; color:${isTooFast ? '#e74c3c' : '#2963B1'}; background:${isTooFast ? '#fee2e2' : '#e8f0fb'}; padding:2px 6px; border-radius:4px; margin-left:6px;">⏱ ${timeText}${isTooFast ? ' ⚠️' : ''}</span>`;
+          }
+
+          // 正解数の整形
+          let scoreText = '';
+          if (data.correct !== undefined && data.total !== undefined) {
+            scoreText = `<span style="font-size:0.85em; color:#15803D; font-weight:bold; margin-left:6px;">(${data.correct}/${data.total}正解)</span>`;
+          }
+
+          historyList.innerHTML += `
+            <li style="padding: 6px 0;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:#666; font-size:0.85em;">${dateStr}</span>
+                <div>${scoreText} ${timeBadge}</div>
+              </div>
+              <strong style="color:#1a2e4a;">${subject}</strong>
+              <div style="font-size:0.88em; color:#444; margin-top:2px;">${unit}</div>
+            </li>
+          `;
         });
       }
     } catch (e) {
