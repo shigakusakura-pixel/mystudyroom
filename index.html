@@ -383,7 +383,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     document.getElementById('pass-input').value = '';
   });
 
-// mystudyroom / index.html 内のクリック処理
+// リンククリック時の遷移処理（確実に生徒IDを付与する）
   document.addEventListener('click', async (e) => {
     const link = e.target.closest('a');
     if (!link || link.id === 'logout-btn') return;
@@ -392,11 +392,19 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     if (!href || href === '#' || href.startsWith('javascript:')) return;
     e.preventDefault(); 
 
-    // ログイン中のメールアドレスを取得
+    // ① ログイン情報をあらゆる手段で特定する
     const user = auth.currentUser;
-    const email = user && user.email ? user.email : currentStudentId;
-    const sId = email ? email.split('@')[0] : 'guest';
+    let fullEmail = user && user.email ? user.email : (currentStudentId || localStorage.getItem('shigaku_student_id') || '');
     
+    // @の前のID部分（teacher, student001 など）を抽出
+    let sId = 'guest';
+    if (fullEmail && fullEmail.includes('@')) {
+      sId = fullEmail.split('@')[0];
+    } else if (fullEmail && fullEmail.trim() !== '') {
+      sId = fullEmail.trim();
+    }
+
+    // 動画サイト用
     if (href.includes("shigaku-mystudy.com")) {
       try {
         await addDoc(collection(db, "learning_records"), {
@@ -404,21 +412,22 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
           subject: "授業動画", unit: "動画視聴", questionId: "視聴開始", action: "視聴",
           correct: 1, total: 1, timestamp: serverTimestamp()
         });
-      } catch (e) {}
+      } catch (err) {}
       window.open(href, '_blank');
-    } else {
-      // どの教材への遷移でも確実に ?student=〇〇 を付与
-      let targetUrl = href;
-      const separator = href.includes('?') ? '&' : '?';
-      if (!href.includes('student=')) {
-        targetUrl = `${href}${separator}student=${encodeURIComponent(sId)}`;
-      }
-      
-      if (link.getAttribute('target') === '_blank') { 
-        window.open(targetUrl, '_blank'); 
-      } else { 
-        window.location.href = targetUrl; 
-      }
+      return;
+    }
+
+    // 教材ページ（英文法・理科・数学・社会など）への遷移
+    let targetUrl = href;
+    if (sId !== 'guest' && !targetUrl.includes('student=')) {
+      const sep = targetUrl.includes('?') ? '&' : '?';
+      targetUrl = `${targetUrl}${sep}student=${encodeURIComponent(sId)}`;
+    }
+
+    if (link.getAttribute('target') === '_blank') { 
+      window.open(targetUrl, '_blank'); 
+    } else { 
+      window.location.href = targetUrl; 
     }
   });
 </script>
