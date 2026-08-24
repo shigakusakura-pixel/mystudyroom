@@ -383,20 +383,23 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     document.getElementById('pass-input').value = '';
   });
 
+ // リンククリック時に確実にFirebaseログインユーザーからIDを取得してURLに付与
   document.addEventListener('click', async (e) => {
     const link = e.target.closest('a');
     if (!link || link.id === 'logout-btn') return;
     
     const href = link.getAttribute('href');
-    if (!href || href === '#') return;
+    if (!href || href === '#' || href.startsWith('javascript:')) return;
     e.preventDefault(); 
     
-    const displayName = currentStudentId.includes('@') ? currentStudentId.split('@')[0] : currentStudentId;
+    // ログイン中のユーザーから直接ID（メアドの先頭）を取得
+    const user = auth.currentUser;
+    let sId = user && user.email ? user.email.split('@')[0] : (currentStudentId ? currentStudentId.split('@')[0] : 'guest');
     
     if (href.includes("shigaku-mystudy.com")) {
       try {
         await addDoc(collection(db, "learning_records"), {
-          studentId: displayName || "ゲスト",
+          studentId: sId,
           subject: "授業動画", unit: "動画視聴", questionId: "視聴開始", action: "視聴",
           correct: 1, total: 1, timestamp: serverTimestamp()
         });
@@ -404,10 +407,14 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
       window.open(href, '_blank');
     } else {
       let targetUrl = href;
-      if (displayName && !href.includes('student=')) {
-        targetUrl = href + (href.includes('?') ? '&' : '?') + "student=" + displayName;
+      if (sId && sId !== 'guest' && !href.includes('student=')) {
+        targetUrl = href + (href.includes('?') ? '&' : '?') + "student=" + encodeURIComponent(sId);
       }
-      if (link.getAttribute('target') === '_blank') { window.open(targetUrl, '_blank'); } else { window.location.href = targetUrl; }
+      if (link.getAttribute('target') === '_blank') { 
+        window.open(targetUrl, '_blank'); 
+      } else { 
+        window.location.href = targetUrl; 
+      }
     }
   });
 </script>
