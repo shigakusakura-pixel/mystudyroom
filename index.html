@@ -388,23 +388,37 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     
     const displayName = currentStudentId.includes('@') ? currentStudentId.split('@')[0] : currentStudentId;
     
-    if (href.includes("shigaku-mystudy.com")) {
-      try {
-        await addDoc(collection(db, "learning_records"), {
-          studentId: displayName || "ゲスト",
-          subject: "授業動画", unit: "動画視聴", questionId: "視聴開始", action: "視聴",
-          correct: 1, total: 1, timestamp: serverTimestamp()
-        });
-      } catch (e) {}
-      window.open(href, '_blank');
-    } else {
-      let targetUrl = href;
-      if (displayName && !href.includes('student=')) {
-        targetUrl = href + (href.includes('?') ? '&' : '?') + "student=" + displayName;
-      }
-      if (link.getAttribute('target') === '_blank') { window.open(targetUrl, '_blank'); } else { window.location.href = targetUrl; }
-    }
-  });
+  // 未ログイン（displayName が無い・空）ならブロック
+if (!displayName || displayName === "ゲスト" || displayName.trim() === "") {
+  alert("学習を始めるにはログインが必要です。");
+  return;
+}
+
+if (href.includes("shigaku-mystudy.com")) {
+  try {
+    await addDoc(collection(db, "learning_records"), {
+      studentId: displayName,
+      subject: "授業動画",
+      unit: "動画視聴",
+      questionId: "視聴開始",
+      action: "視聴",
+      correct: 1,
+      total: 1,
+      timestamp: serverTimestamp()
+    });
+  } catch (e) {}
+  window.open(href, '_blank');
+} else {
+  let targetUrl = href;
+  if (!href.includes('student=')) {
+    targetUrl = href + (href.includes('?') ? '&' : '?') + "student=" + encodeURIComponent(displayName);
+  }
+  if (link.getAttribute('target') === '_blank') {
+    window.open(targetUrl, '_blank');
+  } else {
+    window.location.href = targetUrl;
+  }
+}
 </script>
 </body>
 </html>
