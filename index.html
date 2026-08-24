@@ -331,16 +331,21 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     }
   }
 
-  onAuthStateChanged(auth, (user) => {
+ onAuthStateChanged(auth, (user) => {
     document.getElementById('loading-wrapper').style.display = 'none'; 
     
     if (user) {
       currentStudentId = user.email;
+      // ★ 追加：ブラウザ全体に現在の生徒IDを確実に保存
+      localStorage.setItem('shigaku_student_id', user.email);
+      
       document.getElementById('login-wrapper').style.display = 'none';
       document.getElementById('portal-content').style.display = 'block';
       document.getElementById('logout-btn').style.display = 'block'; 
       loadPersonalMessage(currentStudentId);
     } else {
+      currentStudentId = "";
+      localStorage.removeItem('shigaku_student_id');
       document.getElementById('portal-content').style.display = 'none';
       document.getElementById('logout-btn').style.display = 'none'; 
       document.getElementById('login-wrapper').style.display = 'flex';
