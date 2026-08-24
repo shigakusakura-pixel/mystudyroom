@@ -383,7 +383,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     document.getElementById('pass-input').value = '';
   });
 
- // リンククリック時に確実にFirebaseログインユーザーからIDを取得してURLに付与
+// mystudyroom / index.html 内のクリック処理
   document.addEventListener('click', async (e) => {
     const link = e.target.closest('a');
     if (!link || link.id === 'logout-btn') return;
@@ -391,10 +391,11 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     const href = link.getAttribute('href');
     if (!href || href === '#' || href.startsWith('javascript:')) return;
     e.preventDefault(); 
-    
-    // ログイン中のユーザーから直接ID（メアドの先頭）を取得
+
+    // ログイン中のメールアドレスを取得
     const user = auth.currentUser;
-    let sId = user && user.email ? user.email.split('@')[0] : (currentStudentId ? currentStudentId.split('@')[0] : 'guest');
+    const email = user && user.email ? user.email : currentStudentId;
+    const sId = email ? email.split('@')[0] : 'guest';
     
     if (href.includes("shigaku-mystudy.com")) {
       try {
@@ -406,10 +407,13 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
       } catch (e) {}
       window.open(href, '_blank');
     } else {
+      // どの教材への遷移でも確実に ?student=〇〇 を付与
       let targetUrl = href;
-      if (sId && sId !== 'guest' && !href.includes('student=')) {
-        targetUrl = href + (href.includes('?') ? '&' : '?') + "student=" + encodeURIComponent(sId);
+      const separator = href.includes('?') ? '&' : '?';
+      if (!href.includes('student=')) {
+        targetUrl = `${href}${separator}student=${encodeURIComponent(sId)}`;
       }
+      
       if (link.getAttribute('target') === '_blank') { 
         window.open(targetUrl, '_blank'); 
       } else { 
