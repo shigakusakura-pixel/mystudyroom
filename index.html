@@ -231,8 +231,19 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getFirestore, collection, query, where, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { 
+    getAuth, 
+    signInWithEmailAndPassword, 
+    signOut, 
+    onAuthStateChanged 
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { 
+    getFirestore, 
+    collection, 
+    getDocs, 
+    addDoc, 
+    serverTimestamp 
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBQjnlOfeVvWQJHDxGE9cq-jGsYF3uo0PY",
@@ -244,77 +255,131 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
   };
 
   const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
   const auth = getAuth(app);
+  const db = getFirestore(app);
 
-  const STUDENT_RECORDS = {
-    "student001@shigaku.local": { name: "後田 莉乃葉", grade: "grade_2" },
-    "tuji@shigaku.local": { name: "辻 結香", grade: "grade_1" },
-    "student003@shigaku.local": { name: "辻 沙香", grade: "grade_3" },
-    "student004@shigaku.local": { name: "二ノ宮 愛彩", grade: "grade_3" },
-    "student005@shigaku.local": { name: "丸目 妃織", grade: "grade_3" },
-    "student006@shigaku.local": { name: "久保 善光", grade: "grade_3" },
-    "student007@shigaku.local": { name: "新留 らな", grade: "grade_3" },
-    "student008@shigaku.local": { name: "溝口 ゆうか", grade: "grade_3" },
-    "student009@shigaku.local": { name: "川原 美桜", grade: "grade_3" },
-    "student010@shigaku.local": { name: "藤中 敬斗", grade: "grade_3" },
-    "yoshi@shigaku.local": { name: "吉元 碧唯", grade: "grade_3" },
-    "student012@shigaku.local": { name: "中 凜華", grade: "grade_3" },
-    "student013@shigaku.local": { name: "古川 桜汰", grade: "grade_3" },
-    "student014@shigaku.local": { name: "橋元 湧", grade: "grade_3" },
-    "student015@shigaku.local": { name: "福薗 賢人", grade: "grade_3" },
-    "student016@shigaku.local": { name: "宮崎 玲歩", grade: "grade_3" },
-    "student017@shigaku.local": { name: "鮫島 蒼侑", grade: "grade_3" },
-    "student018@shigaku.local": { name: "長倉 良介", grade: "grade_3" },
-    "student019@shigaku.local": { name: "岡元 夢歩", grade: "grade_3" },
-    "student020@shigaku.local": { name: "川路 美衣奈", grade: "grade_3" },
-    "student021@shigaku.local": { name: "川上 ひかり", grade: "grade_1" },
-    "teacher@shigaku.local": { name: "日野 妙三", grade: "all" },
-    "sky@shigaku.local": { name: "Sky", grade: "all" },
-    "guest": { name: "ゲストユーザー", grade: "all" }
+  const STUDENT_NAMES = {
+    "student001@shigaku.local": "後田 莉乃葉",
+    "tuji@shigaku.local": "辻 結香",
+    "student003@shigaku.local": "辻 沙香",
+    "student004@shigaku.local": "二ノ宮 愛彩",
+    "student005@shigaku.local": "丸目 妃織",
+    "student006@shigaku.local": "久保 善光",
+    "student007@shigaku.local": "新留 らな",
+    "student008@shigaku.local": "溝口 ゆうか",
+    "student009@shigaku.local": "川原 美桜",
+    "student010@shigaku.local": "藤中 敬斗",
+    "yoshi@shigaku.local": "吉元 碧唯",
+    "student012@shigaku.local": "中 凜華",
+    "student013@shigaku.local": "古川 桜汰",
+    "student014@shigaku.local": "橋元 湧",
+    "student015@shigaku.local": "福薗 賢人",
+    "student016@shigaku.local": "宮崎 玲歩",
+    "student017@shigaku.local": "鮫島 蒼侑",
+    "student018@shigaku.local": "長倉 良介",
+    "student019@shigaku.local": "岡元 夢歩",
+    "student020@shigaku.local": "川路 美衣奈",
+    "student021@shigaku.local": "川上 ひかり",
+    "teacher@shigaku.local": "日野 妙三",
+    "sky@shigaku.local": "Sky",
+    "guest": "ゲストユーザー"
   };
+
   let currentStudentId = "";
 
-  async function loadPersonalMessage(fullEmail) {
-    const msgArea = document.getElementById('personal-message-area');
-    const studentInfo = STUDENT_RECORDS[fullEmail] || { name: fullEmail.split('@')[0], grade: "none" };
-    const displayName = studentInfo.name;
-    const myGrade = studentInfo.grade;
+  // 1. ログイン処理
+  const loginBtn = document.getElementById('login-btn') || document.querySelector('button[type="submit"]') || document.querySelector('.login-btn');
+  const emailInput = document.getElementById('student-id') || document.getElementById('email') || document.querySelector('input[type="email"]') || document.querySelector('input[type="text"]');
+  const passInput = document.getElementById('password') || document.querySelector('input[type="password"]');
+
+  async function handleLogin() {
+    if (!emailInput || !passInput) return;
+    let email = emailInput.value.trim();
+    const pass = passInput.value.trim();
+
+    if (!email || !pass) {
+      alert("IDとパスワードを入力してください。");
+      return;
+    }
+
+    if (!email.includes('@')) {
+      email = `${email}@shigaku.local`;
+    }
 
     try {
-      const q = query(collection(db, "teacher_messages"), 
-                 where("target", "in", [fullEmail, myGrade, "all"]));
-      const querySnapshot = await getDocs(q);
+      await signInWithEmailAndPassword(auth, email, pass);
+    } catch (err) {
+      console.error("ログイン失敗:", err);
+      alert("IDまたはパスワードが正しくありません。");
+    }
+  }
 
+  if (loginBtn) {
+    loginBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      handleLogin();
+    });
+  }
+
+  if (passInput) {
+    passInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleLogin();
+      }
+    });
+  }
+
+  // 2. ログアウト処理
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        await signOut(auth);
+      } catch (err) {
+        console.error("ログアウトエラー:", err);
+      }
+    });
+  }
+
+  // 3. お知らせ読み込み処理
+  async function loadPersonalMessage(studentEmail) {
+    const msgArea = document.getElementById('personal-message-area') || document.getElementById('message-area');
+    if (!msgArea) return;
+
+    const displayName = STUDENT_NAMES[studentEmail] || studentEmail.split('@')[0];
+    const colorMap = {
+      navy: "#004098",
+      black: "#222222",
+      red: "#e74c3c"
+    };
+
+    try {
+      const snap = await getDocs(collection(db, "teacher_messages"));
       let msgs = [];
-      querySnapshot.forEach((doc) => {
-        msgs.push(doc.data());
+      snap.forEach(d => {
+        const data = d.data();
+        const target = data.target || data.studentId;
+        if (target === studentEmail || target === "all") {
+          msgs.push(data);
+        }
       });
 
-      // 日付が新しい順に並び替え
       msgs.sort((a, b) => {
-        let timeA = a.timestamp ? (typeof a.timestamp.toDate === 'function' ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime()) : 0;
-        let timeB = b.timestamp ? (typeof b.timestamp.toDate === 'function' ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime()) : 0;
+        const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : 0;
+        const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : 0;
         return timeB - timeA;
       });
 
-      // 文字色変換（紺・黒・赤）
-      const colorMap = {
-        navy: "#004098",  // 紺色（デフォルト）
-        black: "#222222", // 黒色
-        red: "#e74c3c"    // 赤色（重要）
-      };
-
       const recentMsgs = msgs.slice(0, 5);
-
       let htmlContent = `<span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${displayName} さんへのお知らせ</strong></span><br><br>`;
       
       if (recentMsgs.length > 0) {
         recentMsgs.forEach(msg => {
           const applyColor = colorMap[msg.textColor] || "#004098";
-
           htmlContent += `<div style="border-bottom: 1px solid #eee; padding: 15px 0;">`;
-          htmlContent += `<div style="margin-bottom: 8px; font-weight: bold; color: ${applyColor};">${msg.message.replace(/\n/g, '<br>')}</div>`;
+          htmlContent += `<div style="margin-bottom: 8px; font-weight: bold; color: ${applyColor};">${(msg.message || '').replace(/\n/g, '<br>')}</div>`;
           if (msg.pdfUrl) {
             htmlContent += `<a href="${msg.pdfUrl}" target="_blank" style="display: inline-block; padding: 8px 16px; background-color: #2a9d8f; color: white; text-decoration: none; border-radius: 5px; font-size: 0.85em; font-weight: bold;">📄 添付ファイルを開く</a>`;
           }
@@ -327,63 +392,46 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
       msgArea.innerHTML = htmlContent;
     } catch (e) {
       console.error(e);
-      msgArea.innerHTML = "読み込みエラー";
+      msgArea.innerHTML = "お知らせの読み込みに失敗しました。";
     }
   }
-// ログアウト処理の登録
-  const logoutBtn = document.getElementById('logout-btn');
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      try {
-        await signOut(auth);
-        console.log("ログアウトしました");
-      } catch (err) {
-        console.error("ログアウトエラー:", err);
-      }
-    });
-  }
 
-  // ログイン状態の監視
+  // 4. ログイン監視＆教材リンクへのID埋め込み
   onAuthStateChanged(auth, (user) => {
     const loadingWrapper = document.getElementById('loading-wrapper');
+    const loginWrapper = document.getElementById('login-wrapper');
+    const portalContent = document.getElementById('portal-content');
+
     if (loadingWrapper) loadingWrapper.style.display = 'none'; 
     
     if (user) {
       currentStudentId = user.email;
-      const sId = user.email.split('@')[0]; // teacher, student001 など
-      
-      // ★ 最重要：ログイン成功時に、画面内のすべての教材ボタンに ?student=〇〇 を直接セットする
+      const sId = user.email.split('@')[0]; // teacher, student001
+
+      // 全ボタンのリンク先末尾に ?student=〇〇 をセット
       document.querySelectorAll('a').forEach(link => {
         const href = link.getAttribute('href');
-     if (href && !href.startsWith('#') && !href.startsWith('javascript:') && link.id !== 'logout-btn') {
-          if (!href.includes('shigaku-mystudy.com')) { // 動画サイト以外
-            const baseHref = href.split('?')[0]; // 既存パラメータを一旦クリア
+        if (href && !href.startsWith('#') && !href.startsWith('javascript:') && link.id !== 'logout-btn') {
+          if (!href.includes('shigaku-mystudy.com')) {
+            const baseHref = href.split('?')[0];
             link.href = `${baseHref}?student=${encodeURIComponent(sId)}`;
           }
         }
       });
 
-      const loginWrapper = document.getElementById('login-wrapper');
-      const portalContent = document.getElementById('portal-content');
       if (loginWrapper) loginWrapper.style.display = 'none';
       if (portalContent) portalContent.style.display = 'block';
       if (logoutBtn) logoutBtn.style.display = 'block'; 
-      
-      if (typeof loadPersonalMessage === 'function') {
-        loadPersonalMessage(currentStudentId);
-      }
+      loadPersonalMessage(currentStudentId);
     } else {
       currentStudentId = "";
-      const loginWrapper = document.getElementById('login-wrapper');
-      const portalContent = document.getElementById('portal-content');
       if (portalContent) portalContent.style.display = 'none';
       if (logoutBtn) logoutBtn.style.display = 'none'; 
       if (loginWrapper) loginWrapper.style.display = 'flex';
     }
   });
 
-  // 授業動画サイトの視聴記録クリック検知
+  // 5. 授業動画クリック検知
   document.addEventListener('click', async (e) => {
     const link = e.target.closest('a');
     if (!link) return;
@@ -402,5 +450,3 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     }
   });
 </script>
-</body>
-</html>
