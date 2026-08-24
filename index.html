@@ -331,81 +331,46 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     }
   }
 
- onAuthStateChanged(auth, (user) => {
+// ログイン状態の監視
+  onAuthStateChanged(auth, (user) => {
     document.getElementById('loading-wrapper').style.display = 'none'; 
     
     if (user) {
       currentStudentId = user.email;
-      // ★ 追加：ブラウザ全体に現在の生徒IDを確実に保存
-      localStorage.setItem('shigaku_student_id', user.email);
+      const sId = user.email.split('@')[0]; // teacher, student001 など
       
+      // ★ 最重要：ログイン成功時に、画面内のすべての教材ボタンに ?student=〇〇 を直接セットする
+      document.querySelectorAll('a').forEach(link => {
+        const href = link.getAttribute('href');
+        if (href && !href.startsWith('#') && !href.startsWith('javascript:') && link.id !== 'logout-btn') {
+          if (!href.includes('shigaku-mystudy.com')) { // 動画サイト以外
+            const baseHref = href.split('?')[0]; // 既存のパラメータを一旦リセット
+            link.href = `${baseHref}?student=${encodeURIComponent(sId)}`;
+          }
+        }
+      });
+
       document.getElementById('login-wrapper').style.display = 'none';
       document.getElementById('portal-content').style.display = 'block';
       document.getElementById('logout-btn').style.display = 'block'; 
       loadPersonalMessage(currentStudentId);
     } else {
       currentStudentId = "";
-      localStorage.removeItem('shigaku_student_id');
       document.getElementById('portal-content').style.display = 'none';
       document.getElementById('logout-btn').style.display = 'none'; 
       document.getElementById('login-wrapper').style.display = 'flex';
     }
   });
 
-  document.getElementById('login-btn').addEventListener('click', async () => {
-    const id = document.getElementById('id-input').value.trim();
-    const pass = document.getElementById('pass-input').value.trim();
-    const errorMsg = document.getElementById('login-error');
-    
-    if (!id || !pass) {
-      errorMsg.style.display = 'block';
-      return;
-    }
-
-    const loginEmail = id.includes('@') ? id : `${id}@mystudy.dummy.com`;
-
-    try {
-      await signInWithEmailAndPassword(auth, loginEmail, pass);
-      errorMsg.style.display = 'none';
-      try {
-        await addDoc(collection(db, "access_logs"), {
-          studentId: id, subject: "My スタディ（ポータルホーム）", accessedAt: serverTimestamp()
-        });
-      } catch (e) {}
-    } catch (error) {
-      errorMsg.style.display = 'block';
-    }
-  });
-
-  document.getElementById('logout-btn').addEventListener('click', async () => {
-    await signOut(auth);
-    document.getElementById('id-input').value = '';
-    document.getElementById('pass-input').value = '';
-  });
-
-// リンククリック時の遷移処理（確実に生徒IDを付与する）
+  // 動画サイトの視聴記録のみを検知するクリック処理
   document.addEventListener('click', async (e) => {
     const link = e.target.closest('a');
-    if (!link || link.id === 'logout-btn') return;
+    if (!link) return;
+    const href = link.getAttribute('href') || '';
     
-    const href = link.getAttribute('href');
-    if (!href || href === '#' || href.startsWith('javascript:')) return;
-    e.preventDefault(); 
-
-    // ① ログイン情報をあらゆる手段で特定する
-    const user = auth.currentUser;
-    let fullEmail = user && user.email ? user.email : (currentStudentId || localStorage.getItem('shigaku_student_id') || '');
-    
-    // @の前のID部分（teacher, student001 など）を抽出
-    let sId = 'guest';
-    if (fullEmail && fullEmail.includes('@')) {
-      sId = fullEmail.split('@')[0];
-    } else if (fullEmail && fullEmail.trim() !== '') {
-      sId = fullEmail.trim();
-    }
-
-    // 動画サイト用
     if (href.includes("shigaku-mystudy.com")) {
+      const user = auth.currentUser;
+      const sId = user && user.email ? user.email.split('@')[0] : 'guest';
       try {
         await addDoc(collection(db, "learning_records"), {
           studentId: sId,
@@ -413,21 +378,6 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
           correct: 1, total: 1, timestamp: serverTimestamp()
         });
       } catch (err) {}
-      window.open(href, '_blank');
-      return;
-    }
-
-    // 教材ページ（英文法・理科・数学・社会など）への遷移
-    let targetUrl = href;
-    if (sId !== 'guest' && !targetUrl.includes('student=')) {
-      const sep = targetUrl.includes('?') ? '&' : '?';
-      targetUrl = `${targetUrl}${sep}student=${encodeURIComponent(sId)}`;
-    }
-
-    if (link.getAttribute('target') === '_blank') { 
-      window.open(targetUrl, '_blank'); 
-    } else { 
-      window.location.href = targetUrl; 
     }
   });
 </script>
