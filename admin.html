@@ -385,8 +385,7 @@
     document.getElementById('loading-view').textContent = "⏳ Firebaseから最新データを集計中...";
     await fetchFromFirebaseAndAggregate();
   }
-
-  async function fetchFromFirebaseAndAggregate() {
+async function fetchFromFirebaseAndAggregate() {
     try {
       const now = new Date();
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -424,7 +423,6 @@
             }
         }
 
-// ▼ 変更後
         if (timestampMs) {
           allRecentRecords.push({ 
             studentId: sId, 
@@ -432,11 +430,18 @@
             unit: data.unit || '', 
             correct: data.correct,
             total: data.total,
-            duration: data.duration, // 所要時間（秒）を保存
+            duration: data.duration,
             timestampMs: timestampMs 
           });
           studentMap[sId].count30++;
-// ...
+          if (timestampMs >= sevenDaysAgo.getTime()) studentMap[sId].count7++;
+          if (!studentMap[sId].lastActiveMs || timestampMs > studentMap[sId].lastActiveMs) studentMap[sId].lastActiveMs = timestampMs;
+          
+          const subjectName = data.subject || 'その他/不明';
+          if (!studentMap[sId].subjects[subjectName]) studentMap[sId].subjects[subjectName] = 0;
+          studentMap[sId].subjects[subjectName]++;
+        }
+      });
 
       const nowMs = Date.now();
       localStorage.setItem('mystudy_cache_time', nowMs.toString());
