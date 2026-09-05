@@ -86,9 +86,19 @@
 
 <!-- 社会クエスト 学習進捗・ログ一覧エリア -->
 <div class="admin-card" style="margin-top: 24px; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); max-width: 1000px; margin-left: auto; margin-right: auto;">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
     <h3 style="margin: 0; color: #0F3875;">🗺️ 志学社会クエスト 学習進捗・直近ログ</h3>
-    <button onclick="loadSocialQuestAdminData()" style="padding: 6px 14px; background: #0F3875; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">🔄 最新に更新</button>
+    
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <!-- ★ 月指定ログ整理機能（メダル・進捗は保持） -->
+      <div style="display: flex; align-items: center; gap: 6px; background: #FEE2E2; padding: 4px 8px; border-radius: 6px; border: 1px solid #FCA5A5;">
+        <span style="font-size: 0.75rem; font-weight: bold; color: #991B1B;">🗑️ ログ整理:</span>
+        <input type="month" id="delete-target-month" style="font-size: 0.8rem; padding: 2px 4px; border: 1px solid #CBD5E1; border-radius: 4px;">
+        <button onclick="deleteMonthlyLogs()" style="padding: 4px 10px; background: #DC2626; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">以前を削除</button>
+      </div>
+
+      <button onclick="loadSocialQuestAdminData()" style="padding: 6px 14px; background: #0F3875; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">🔄 最新に更新</button>
+    </div>
   </div>
 
   <div style="display: flex; gap: 8px; margin-bottom: 14px;">
@@ -223,7 +233,6 @@
   };
 
   const app = initializeApp(firebaseConfig);
-  // Safari・各ブラウザの通信ブロックを完全回避するLongPolling固定設定
   const db = initializeFirestore(app, {
     experimentalForceLongPolling: true,
   });
@@ -554,7 +563,6 @@
           const subject = data.subject || '教科不明';
           const unit = data.unit || '';
 
-          // 所要時間の整形
           let timeBadge = '';
           if (data.duration && !isNaN(data.duration)) {
             const m = Math.floor(data.duration / 60);
@@ -564,7 +572,6 @@
             timeBadge = `<span style="font-size:0.85em; font-weight:bold; color:${isTooFast ? '#e74c3c' : '#2963B1'}; background:${isTooFast ? '#fee2e2' : '#e8f0fb'}; padding:2px 6px; border-radius:4px; margin-left:6px;">⏱ ${timeText}${isTooFast ? ' ⚠️' : ''}</span>`;
           }
 
-          // 正解数の整形
           let scoreText = '';
           if (data.correct !== undefined && data.total !== undefined) {
             scoreText = `<span style="font-size:0.85em; color:#15803D; font-weight:bold; margin-left:6px;">(${data.correct}/${data.total}正解)</span>`;
@@ -589,7 +596,6 @@
     loadSentMessages(student.id);
   }
 
-  // 送信処理（色データを含めてFirebaseへ保存）
   document.getElementById('send-msg-btn').addEventListener('click', async () => {
     const msgInput = document.getElementById('teacher-msg-input');
     const statusText = document.getElementById('msg-send-status');
@@ -665,7 +671,7 @@
   initDashboard(false);
 
 // ==========================================
-// 社会クエスト管理用データ取得・描画（v10 モジュール対応版）
+// 社会クエスト管理用データ取得・描画・削除機能
 // ==========================================
 async function loadSocialLogs() {
   const tbody = document.getElementById("social-logs-tbody");
@@ -764,6 +770,55 @@ async function loadSocialSummary() {
 
 window.loadSocialQuestAdminData = async function() {
   await Promise.all([loadSocialLogs(), loadSocialSummary()]);
+};
+
+// ★ 月指定での解答ログ一括削除（quest_progress のメダル・進捗は完全温存）
+window.deleteMonthlyLogs = async function() {
+  const monthInput = document.getElementById("delete-target-month");
+  if (!monthInput || !monthInput.value) {
+    alert("削除基準とする年月（例: 2026-08）を選択してください。");
+    return;
+  }
+
+  const [year, month] = monthInput.value.split("-").map(Number);
+  const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999).getTime();
+
+  const confirmMsg = `【削除前の最終確認】\n${year}年${month}月末日 以前の「解答ログ（quest_logs）」をすべて削除しますか？\n\n※ 生徒が獲得したメダルやクリア単元などの進捗データはそのまま保持されます。`;
+  if (!confirm(confirmMsg)) return;
+
+  try {
+    const snap = await getDocs(collection(db, "quest_logs"));
+    let deleteCount = 0;
+    const deletePromises = [];
+
+    snap.forEach((dDoc) => {
+      const data = dDoc.data();
+      let logTimeMs = 0;
+      if (data.timestamp?.toDate) {
+        logTimeMs = data.timestamp.toDate().getTime();
+      } else if (data.timestamp) {
+        logTimeMs = new Date(data.timestamp).getTime();
+      }
+
+      if (logTimeMs > 0 && logTimeMs <= endOfMonth) {
+        deletePromises.push(deleteDoc(doc(db, "quest_logs", dDoc.id)));
+        deleteCount++;
+      }
+    });
+
+    if (deleteCount === 0) {
+      alert(`${year}年${month}月以前の対象ログは見つかりませんでした。`);
+      return;
+    }
+
+    await Promise.all(deletePromises);
+    alert(`✅ ${deleteCount} 件の過去ログを削除しました。\n生徒のメダル・進捗データは安全に保持されています。`);
+
+    window.loadSocialQuestAdminData();
+  } catch (err) {
+    console.error("ログ削除エラー:", err);
+    alert("削除中にエラーが発生しました: " + err.message);
+  }
 };
 
 window.switchSocialTab = function(tab) {
