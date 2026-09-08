@@ -356,319 +356,628 @@
     }
   }
 
-  async function initDashboard(forceUpdate = false) {
-    document.getElementById('loading-view').style.display = 'block';
-    document.getElementById('student-table').style.display = 'none';
-    
-    const cachedTime = localStorage.getItem('mystudy_cache_time');
-    const cachedMap = localStorage.getItem('mystudy_student_map');
-    const cachedRec = localStorage.getItem('mystudy_recent_records');
-    
-    const nowMs = Date.now();
-    const CACHE_MINUTES = 30;
-    const expireMs = CACHE_MINUTES * 60 * 1000;
+// ==========================================
+// 生徒学習状況ダッシュボード
+// 未登録ID除外・キャッシュ対策 完成版
+// ==========================================
 
-    if (!forceUpdate && cachedTime && cachedMap && cachedRec && (nowMs - parseInt(cachedTime)) < expireMs) {
-        const studentMap = JSON.parse(cachedMap);
-        allRecentRecords = JSON.parse(cachedRec);
-        
-        const dateObj = new Date(parseInt(cachedTime));
-        document.getElementById('last-update-time').textContent = dateObj.toLocaleTimeString('ja-JP');
-        
-        const studentList = Object.values(studentMap);
-        sortAndRender(studentList, 'count7');
-        
-        document.getElementById('loading-view').style.display = 'none';
-        document.getElementById('student-table').style.display = 'table';
-        return;
-    }
+async function initDashboard(forceUpdate = false) {
+  document.getElementById('loading-view').style.display = 'block';
+  document.getElementById('student-table').style.display = 'none';
 
-    document.getElementById('loading-view').textContent = "⏳ Firebaseから最新データを集計中...";
-    await fetchFromFirebaseAndAggregate();
-  }
+  const cachedTime = localStorage.getItem('mystudy_cache_time');
+  const cachedMap = localStorage.getItem('mystudy_student_map');
+  const cachedRec = localStorage.getItem('mystudy_recent_records');
 
-  async function fetchFromFirebaseAndAggregate() {
+  const nowMs = Date.now();
+  const CACHE_MINUTES = 30;
+  const expireMs = CACHE_MINUTES * 60 * 1000;
+
+  // ========================================
+  // キャッシュを利用する場合
+  // ========================================
+  if (
+    !forceUpdate &&
+    cachedTime &&
+    cachedMap &&
+    cachedRec &&
+    (nowMs - parseInt(cachedTime)) < expireMs
+  ) {
     try {
-      const now = new Date();
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const oldStudentMap = JSON.parse(cachedMap);
+      const oldRecentRecords = JSON.parse(cachedRec);
 
-      const q = query(collection(db, "learning_records"), where("timestamp", ">=", thirtyDaysAgo));
-      const querySnapshot = await getDocs(q);
-
-      allRecentRecords = []; 
+      // ★ 登録済み生徒だけを残す
       const studentMap = {};
+
       REGISTERED_STUDENTS.forEach(id => {
-        studentMap[id] = { id: id, count7: 0, count30: 0, lastActiveMs: null, subjects: {} };
-      });
-
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.action === "学習開始" || data.questionId === "アクセス") return; 
-
-        let sId = data.studentId;
-        if (sId) {
-          if (sId === "ゲスト" || sId === "guest") sId = "guest";
-          else if (!sId.includes('@')) sId = sId + '@shigaku.local'; 
+        if (oldStudentMap[id]) {
+          studentMap[id] = oldStudentMap[id];
         } else {
-          sId = "unknown";
-        }
-
-        if (!studentMap[sId]) studentMap[sId] = { id: sId, count7: 0, count30: 0, lastActiveMs: null, subjects: {} };
-
-        let timestampMs = null;
-        if (data.timestamp) {
-            if (typeof data.timestamp.toDate === 'function') timestampMs = data.timestamp.toDate().getTime(); 
-            else {
-                const tmpDate = new Date(data.timestamp); 
-                if (!isNaN(tmpDate.getTime())) timestampMs = tmpDate.getTime(); 
-            }
-        }
-
-        if (timestampMs) {
-          allRecentRecords.push({ 
-            studentId: sId, 
-            subject: data.subject || 'その他/不明', 
-            unit: data.unit || '', 
-            correct: data.correct,
-            total: data.total,
-            duration: data.duration,
-            timestampMs: timestampMs 
-          });
-          studentMap[sId].count30++;
-          if (timestampMs >= sevenDaysAgo.getTime()) studentMap[sId].count7++;
-          if (!studentMap[sId].lastActiveMs || timestampMs > studentMap[sId].lastActiveMs) studentMap[sId].lastActiveMs = timestampMs;
-          
-          const subjectName = data.subject || 'その他/不明';
-          if (!studentMap[sId].subjects[subjectName]) studentMap[sId].subjects[subjectName] = 0;
-          studentMap[sId].subjects[subjectName]++;
+          studentMap[id] = {
+            id: id,
+            count7: 0,
+            count30: 0,
+            lastActiveMs: null,
+            subjects: {}
+          };
         }
       });
 
-      const nowMs = Date.now();
-      localStorage.setItem('mystudy_cache_time', nowMs.toString());
-      localStorage.setItem('mystudy_student_map', JSON.stringify(studentMap));
-      localStorage.setItem('mystudy_recent_records', JSON.stringify(allRecentRecords));
+      // ★ 未登録studentIdの履歴もキャッシュから除外
+      allRecentRecords = oldRecentRecords.filter(record =>
+        REGISTERED_STUDENTS.includes(record.studentId)
+      );
 
-      const dateObj = new Date(nowMs);
-      document.getElementById('last-update-time').textContent = dateObj.toLocaleTimeString('ja-JP');
+      // 整理済みキャッシュを保存し直す
+      localStorage.setItem(
+        'mystudy_student_map',
+        JSON.stringify(studentMap)
+      );
+
+      localStorage.setItem(
+        'mystudy_recent_records',
+        JSON.stringify(allRecentRecords)
+      );
+
+      const dateObj = new Date(parseInt(cachedTime));
+
+      document.getElementById('last-update-time').textContent =
+        dateObj.toLocaleTimeString('ja-JP');
 
       const studentList = Object.values(studentMap);
       sortAndRender(studentList, 'count7');
 
       document.getElementById('loading-view').style.display = 'none';
       document.getElementById('student-table').style.display = 'table';
-    } catch (e) {
-      console.error("エラー:", e);
-      document.getElementById('loading-view').textContent = "❌ 読み込みエラーが発生しました。詳細: " + e.message;
-    }
-  }
 
-  function sortAndRender(list, key, asc = false) {
-    list.sort((a, b) => asc ? a[key] - b[key] : b[key] - a[key]);
-    const tbody = document.getElementById('student-list');
-    tbody.innerHTML = '';
-    list.forEach(student => {
-      const tr = document.createElement('tr');
-      tr.className = 'student-row';
-      if (student.count30 === 0) tr.classList.add('zero-activity');
-
-      const studentInfo = STUDENT_RECORDS[student.id];
-      const studentName = studentInfo ? studentInfo.name : student.id;
-      
-      const dateStr = student.lastActiveMs ? new Date(student.lastActiveMs).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---';
-
-      tr.innerHTML = `<td><span class="student-name-text">${studentName}</span><span class="student-id-sub">${student.id}</span></td>
-                      <td>${student.count7} 回</td><td>${student.count30} 回</td>
-                      <td>${dateStr} ${student.count30 === 0 ? '<span class="badge badge-alert">未受講</span>' : ''}</td>`;
-      
-      tr.addEventListener('click', () => openStudentModal(student, studentName));
-      tbody.appendChild(tr);
-    });
-  }
-
-  let isAsc = false;
-  document.getElementById('sort-7days').addEventListener('click', () => {
-    isAsc = !isAsc;
-    const cachedMap = localStorage.getItem('mystudy_student_map');
-    if (cachedMap) {
-      const studentList = Object.values(JSON.parse(cachedMap));
-      sortAndRender(studentList, 'count7', isAsc);
-    }
-  });
-
-  const modal = document.getElementById('student-modal');
-  const closeBtn = document.getElementById('modal-close-btn');
-  closeBtn.onclick = () => modal.style.display = "none";
-  window.onclick = (event) => { if (event.target == modal) modal.style.display = "none"; }
-
-  function openStudentModal(student, studentName) {
-    currentModalStudentId = student.id; 
-    
-    document.getElementById('modal-name').textContent = studentName;
-    document.getElementById('modal-id').textContent = student.id;
-    document.getElementById('modal-count7').textContent = student.count7;
-    document.getElementById('modal-count30').textContent = student.count30;
-    
-    document.getElementById('teacher-msg-input').value = "";
-    document.getElementById('msg-send-status').textContent = "";
-    
-    const pdfInputElement = document.getElementById('pdf-upload-input');
-    if (pdfInputElement) pdfInputElement.value = "";
-
-    const subjectsContainer = document.getElementById('modal-subjects-container');
-    subjectsContainer.innerHTML = '';
-    if (student.count30 === 0) {
-      subjectsContainer.innerHTML = '<div style="color: #888; font-size: 0.9em;">データがありません</div>';
-    } else {
-      const sortedSubjects = Object.entries(student.subjects).sort((a, b) => b[1] - a[1]);
-      sortedSubjects.forEach(([subjName, count]) => {
-        const percentage = Math.round((count / student.count30) * 100);
-        let barColor = "#95a5a6";
-        if (subjName.includes("英語")) barColor = "#e74c3c";
-        else if (subjName.includes("数学") || subjName.includes("算数")) barColor = "#3498db";
-        else if (subjName.includes("国語")) barColor = "#e67e22";
-        else if (subjName.includes("理科")) barColor = "#2ecc71";
-        else if (subjName.includes("社会")) barColor = "#9b59b6";
-
-        subjectsContainer.innerHTML += `
-          <div class="subject-bar-container">
-            <div class="subject-name"><span>${subjName}</span><span>${count}回 <span style="color:#888; font-size:0.9em; font-weight:normal;">(${percentage}%)</span></span></div>
-            <div class="bar-bg"><div class="bar-fill" style="width: ${percentage}%; background-color: ${barColor};"></div></div>
-          </div>`;
-      });
-    }
-
-    const historyList = document.getElementById('modal-recent-list');
-    historyList.innerHTML = '';
-    modal.style.display = "flex";
-
-    try {
-      const shortId = student.id.includes('@') ? student.id.split('@')[0] : student.id;
-      const myRecords = allRecentRecords.filter(data => {
-         const sId = data.studentId;
-         if (!sId) return false;
-         return sId === student.id || sId === shortId || (student.id === "guest" && (sId === "ゲスト" || sId === "guest"));
-      });
-
-      myRecords.sort((a, b) => b.timestampMs - a.timestampMs);
-      const top10 = myRecords.slice(0, 10);
-
-      if (top10.length === 0) {
-        historyList.innerHTML = '<li style="color:#888;">学習履歴がありません</li>';
-      } else {
-        top10.forEach((data) => {
-          const dateObj = new Date(data.timestampMs);
-          const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '不明';
-          const subject = data.subject || '教科不明';
-          const unit = data.unit || '';
-
-          let timeBadge = '';
-          if (data.duration && !isNaN(data.duration)) {
-            const m = Math.floor(data.duration / 60);
-            const s = data.duration % 60;
-            const timeText = m > 0 ? `${m}分${s}秒` : `${s}秒`;
-            const isTooFast = data.duration < 30;
-            timeBadge = `<span style="font-size:0.85em; font-weight:bold; color:${isTooFast ? '#e74c3c' : '#2963B1'}; background:${isTooFast ? '#fee2e2' : '#e8f0fb'}; padding:2px 6px; border-radius:4px; margin-left:6px;">⏱ ${timeText}${isTooFast ? ' ⚠️' : ''}</span>`;
-          }
-
-          let scoreText = '';
-          if (data.correct !== undefined && data.total !== undefined) {
-            scoreText = `<span style="font-size:0.85em; color:#15803D; font-weight:bold; margin-left:6px;">(${data.correct}/${data.total}正解)</span>`;
-          }
-
-          historyList.innerHTML += `
-            <li style="padding: 6px 0;">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="color:#666; font-size:0.85em;">${dateStr}</span>
-                <div>${scoreText} ${timeBadge}</div>
-              </div>
-              <strong style="color:#1a2e4a;">${subject}</strong>
-              <div style="font-size:0.88em; color:#444; margin-top:2px;">${unit}</div>
-            </li>
-          `;
-        });
-      }
-    } catch (e) {
-      console.error(e);
-    }
-
-    loadSentMessages(student.id);
-  }
-
-  document.getElementById('send-msg-btn').addEventListener('click', async () => {
-    const msgInput = document.getElementById('teacher-msg-input');
-    const statusText = document.getElementById('msg-send-status');
-    const targetTypeElement = document.getElementById('msg-target-type');
-    const colorSelectElement = document.getElementById('msg-color-select');
-    const pdfInputElement = document.getElementById('pdf-upload-input');
-    
-    let message = msgInput.value.trim();
-    const hasFile = pdfInputElement && pdfInputElement.files.length > 0;
-    const textColor = colorSelectElement ? colorSelectElement.value : 'navy';
-
-    if (!message && !hasFile) {
-      statusText.textContent = "メッセージを入力するか、PDFを添付してください";
       return;
-    }
-
-    if (!message && hasFile) {
-      message = "📁 プリントが届きました（添付ファイルを確認してください）";
-    }
-
-    statusText.style.color = "#333";
-    statusText.textContent = "送信中... (PDFアップロード中はそのままお待ちください)";
-
-    try {
-      let pdfUrl = null;
-
-      if (hasFile) {
-        const file = pdfInputElement.files[0];
-        if (file.type !== "application/pdf") {
-           statusText.textContent = "エラー：PDFファイルを選択してください。";
-           statusText.style.color = "#e74c3c";
-           return;
-        }
-        pdfUrl = await uploadPdfToStorage(file);
-      }
-
-      let target = currentModalStudentId; 
-      if (targetTypeElement && targetTypeElement.value !== "individual") {
-        target = targetTypeElement.value;
-      }
-
-      await addDoc(collection(db, "teacher_messages"), {
-        target: target,
-        studentId: currentModalStudentId, 
-        message: message,
-        textColor: textColor,
-        pdfUrl: pdfUrl,
-        isRead: false,
-        timestamp: serverTimestamp()
-      });
-
-      statusText.style.color = "#27ae60";
-      statusText.textContent = "✅ 送信しました！";
-      
-      msgInput.value = ""; 
-      if (pdfInputElement) pdfInputElement.value = ""; 
-      if (targetTypeElement) targetTypeElement.value = "individual";
-      if (colorSelectElement) colorSelectElement.value = "navy";
-
-      loadSentMessages(currentModalStudentId);
 
     } catch (e) {
-      console.error(e);
-      statusText.style.color = "#e74c3c";
-      statusText.textContent = "❌ 送信に失敗しました";
+      console.warn("キャッシュ読み込み失敗。Firebaseから再取得します。", e);
+
+      localStorage.removeItem('mystudy_cache_time');
+      localStorage.removeItem('mystudy_student_map');
+      localStorage.removeItem('mystudy_recent_records');
     }
+  }
+
+  document.getElementById('loading-view').textContent =
+    "⏳ Firebaseから最新データを集計中...";
+
+  await fetchFromFirebaseAndAggregate();
+}
+
+
+// ==========================================
+// Firebaseから最新30日分を取得・集計
+// ==========================================
+
+async function fetchFromFirebaseAndAggregate() {
+  try {
+
+    const now = new Date();
+
+    const thirtyDaysAgo =
+      new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const sevenDaysAgo =
+      new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+
+    const q = query(
+      collection(db, "learning_records"),
+      where("timestamp", ">=", thirtyDaysAgo)
+    );
+
+    const querySnapshot = await getDocs(q);
+
+
+    allRecentRecords = [];
+
+    const studentMap = {};
+
+
+    // ========================================
+    // 正式登録されている生徒だけを初期登録
+    // ========================================
+
+    REGISTERED_STUDENTS.forEach(id => {
+
+      studentMap[id] = {
+        id: id,
+        count7: 0,
+        count30: 0,
+        lastActiveMs: null,
+        subjects: {}
+      };
+
+    });
+
+
+    // ========================================
+    // learning_recordsを集計
+    // ========================================
+
+    querySnapshot.forEach((doc) => {
+
+      const data = doc.data();
+
+
+      // アクセスだけのログは学習回数に含めない
+      if (
+        data.action === "学習開始" ||
+        data.questionId === "アクセス"
+      ) {
+        return;
+      }
+
+
+      let sId = data.studentId;
+
+
+      // ======================================
+      // studentIdを正規化
+      // ======================================
+
+      if (sId) {
+
+        sId = String(sId).trim();
+
+        if (
+          sId === "ゲスト" ||
+          sId === "guest"
+        ) {
+
+          sId = "guest";
+
+        } else if (!sId.includes('@')) {
+
+          sId = sId + '@shigaku.local';
+
+        }
+
+      } else {
+
+        return;
+
+      }
+
+
+      // ======================================
+      // ★ 重要
+      // 正式登録されていないIDは完全除外
+      // ======================================
+
+      if (!REGISTERED_STUDENTS.includes(sId)) {
+
+        console.warn(
+          "未登録studentIdを管理画面から除外:",
+          sId
+        );
+
+        return;
+      }
+
+
+      // ======================================
+      // timestamp取得
+      // ======================================
+
+      let timestampMs = null;
+
+      if (data.timestamp) {
+
+        if (
+          typeof data.timestamp.toDate === 'function'
+        ) {
+
+          timestampMs =
+            data.timestamp.toDate().getTime();
+
+        } else {
+
+          const tmpDate =
+            new Date(data.timestamp);
+
+          if (!isNaN(tmpDate.getTime())) {
+
+            timestampMs =
+              tmpDate.getTime();
+
+          }
+
+        }
+      }
+
+
+      if (!timestampMs) return;
+
+
+      // ======================================
+      // 履歴保存
+      // ======================================
+
+      allRecentRecords.push({
+
+        studentId: sId,
+
+        subject:
+          data.subject || 'その他/不明',
+
+        unit:
+          data.unit || '',
+
+        correct:
+          data.correct,
+
+        total:
+          data.total,
+
+        duration:
+          data.duration,
+
+        timestampMs:
+          timestampMs
+      });
+
+
+      // ======================================
+      // 30日間
+      // ======================================
+
+      studentMap[sId].count30++;
+
+
+      // ======================================
+      // 7日間
+      // ======================================
+
+      if (
+        timestampMs >=
+        sevenDaysAgo.getTime()
+      ) {
+
+        studentMap[sId].count7++;
+
+      }
+
+
+      // ======================================
+      // 最終学習日時
+      // ======================================
+
+      if (
+        !studentMap[sId].lastActiveMs ||
+        timestampMs >
+          studentMap[sId].lastActiveMs
+      ) {
+
+        studentMap[sId].lastActiveMs =
+          timestampMs;
+
+      }
+
+
+      // ======================================
+      // 教科別集計
+      // ======================================
+
+      const subjectName =
+        data.subject || 'その他/不明';
+
+      if (
+        !studentMap[sId]
+          .subjects[subjectName]
+      ) {
+
+        studentMap[sId]
+          .subjects[subjectName] = 0;
+
+      }
+
+      studentMap[sId]
+        .subjects[subjectName]++;
+
+    });
+
+
+    // ========================================
+    // 最新キャッシュを保存
+    // ========================================
+
+    const nowMs = Date.now();
+
+    localStorage.setItem(
+      'mystudy_cache_time',
+      nowMs.toString()
+    );
+
+    localStorage.setItem(
+      'mystudy_student_map',
+      JSON.stringify(studentMap)
+    );
+
+    localStorage.setItem(
+      'mystudy_recent_records',
+      JSON.stringify(allRecentRecords)
+    );
+
+
+    // ========================================
+    // 取得時刻表示
+    // ========================================
+
+    const dateObj =
+      new Date(nowMs);
+
+    document.getElementById(
+      'last-update-time'
+    ).textContent =
+      dateObj.toLocaleTimeString('ja-JP');
+
+
+    // ========================================
+    // 一覧表示
+    // ========================================
+
+    const studentList =
+      Object.values(studentMap);
+
+    sortAndRender(
+      studentList,
+      'count7'
+    );
+
+
+    document.getElementById(
+      'loading-view'
+    ).style.display = 'none';
+
+    document.getElementById(
+      'student-table'
+    ).style.display = 'table';
+
+
+  } catch (e) {
+
+    console.error(
+      "Firebase読み込みエラー:",
+      e
+    );
+
+    document.getElementById(
+      'loading-view'
+    ).textContent =
+      "❌ 読み込みエラーが発生しました。詳細: " +
+      e.message;
+  }
+}
+
+
+// ==========================================
+// 一覧並び替え・表示
+// ==========================================
+
+function sortAndRender(
+  list,
+  key,
+  asc = false
+) {
+
+  // 念のため、ここでも登録生徒だけに限定
+  list = list.filter(student =>
+    REGISTERED_STUDENTS.includes(student.id)
+  );
+
+
+  list.sort(
+    (a, b) =>
+      asc
+        ? a[key] - b[key]
+        : b[key] - a[key]
+  );
+
+
+  const tbody =
+    document.getElementById(
+      'student-list'
+    );
+
+  tbody.innerHTML = '';
+
+
+  list.forEach(student => {
+
+    const tr =
+      document.createElement('tr');
+
+    tr.className =
+      'student-row';
+
+
+    if (
+      student.count30 === 0
+    ) {
+
+      tr.classList.add(
+        'zero-activity'
+      );
+
+    }
+
+
+    const studentInfo =
+      STUDENT_RECORDS[
+        student.id
+      ];
+
+
+    // 登録済み生徒しか来ないため
+    // 正式な氏名を使用
+    const studentName =
+      studentInfo
+        ? studentInfo.name
+        : student.id;
+
+
+    const dateStr =
+      student.lastActiveMs
+
+        ? new Date(
+            student.lastActiveMs
+          ).toLocaleString(
+            'ja-JP',
+            {
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit'
+            }
+          )
+
+        : '---';
+
+
+    tr.innerHTML = `
+      <td>
+        <span class="student-name-text">
+          ${studentName}
+        </span>
+
+        <span class="student-id-sub">
+          ${student.id}
+        </span>
+      </td>
+
+      <td>
+        ${student.count7} 回
+      </td>
+
+      <td>
+        ${student.count30} 回
+      </td>
+
+      <td>
+        ${dateStr}
+
+        ${
+          student.count30 === 0
+
+          ? '<span class="badge badge-alert">未受講</span>'
+
+          : ''
+        }
+      </td>
+    `;
+
+
+    tr.addEventListener(
+      'click',
+      () =>
+        openStudentModal(
+          student,
+          studentName
+        )
+    );
+
+
+    tbody.appendChild(tr);
+
   });
 
-  document.getElementById('force-update-btn').addEventListener('click', () => {
-    initDashboard(true);
-  });
+}
 
-  initDashboard(false);
+
+// ==========================================
+// 7日間学習回数 並び替え
+// ==========================================
+
+let isAsc = false;
+
+document.getElementById(
+  'sort-7days'
+).addEventListener(
+  'click',
+  () => {
+
+    isAsc = !isAsc;
+
+    const cachedMap =
+      localStorage.getItem(
+        'mystudy_student_map'
+      );
+
+
+    if (cachedMap) {
+
+      const map =
+        JSON.parse(cachedMap);
+
+
+      // 登録生徒のみ
+      const studentList =
+        Object.values(map)
+          .filter(student =>
+            REGISTERED_STUDENTS.includes(
+              student.id
+            )
+          );
+
+
+      sortAndRender(
+        studentList,
+        'count7',
+        isAsc
+      );
+
+    }
+
+  }
+);
+
+
+// ==========================================
+// 「最新データに更新」ボタン
+// ==========================================
+
+document.getElementById(
+  'force-update-btn'
+).addEventListener(
+  'click',
+  async () => {
+
+    // ★ 古いキャッシュを完全削除
+    localStorage.removeItem(
+      'mystudy_cache_time'
+    );
+
+    localStorage.removeItem(
+      'mystudy_student_map'
+    );
+
+    localStorage.removeItem(
+      'mystudy_recent_records'
+    );
+
+
+    document.getElementById(
+      'last-update-time'
+    ).textContent =
+      '更新中...';
+
+
+    await initDashboard(true);
+
+  }
+);
+
+
+// ==========================================
+// 初回起動
+// ==========================================
+
+initDashboard(false);
 
 // ==========================================
 // 社会クエスト管理用データ取得・描画・削除機能
