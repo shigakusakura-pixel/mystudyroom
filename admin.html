@@ -111,7 +111,7 @@
       <thead>
         <tr style="background: #F1F5F9; color: #334155; border-bottom: 2px solid #CBD5E1;">
           <th style="padding: 10px;">日時</th>
-          <th style="padding: 10px;">生徒ID</th>
+          <th style="padding: 10px;">生徒名・ID</th>
           <th style="padding: 10px;">単元名・モード</th>
           <th style="padding: 10px;">得点 / 問題数</th>
           <th style="padding: 10px;">正答率</th>
@@ -127,7 +127,7 @@
     <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
       <thead>
         <tr style="background: #F1F5F9; color: #334155; border-bottom: 2px solid #CBD5E1;">
-          <th style="padding: 10px;">生徒ID</th>
+          <th style="padding: 10px;">生徒名・ID</th>
           <th style="padding: 10px;">クリア単元数</th>
           <th style="padding: 10px;">獲得メダル</th>
           <th style="padding: 10px;">苦手問題数</th>
@@ -1131,6 +1131,26 @@ initDashboard(false);
 // ==========================================
 // 社会クエスト管理用データ取得・描画・削除機能
 // ==========================================
+// 社会クエストの生徒IDを現在の名簿に照合し、氏名とIDを表示します。
+function renderSocialStudent(rawId) {
+  const id = String(rawId ?? '').trim();
+  const normalizedId = (id === 'guest' || id === 'ゲスト')
+    ? 'guest'
+    : (id && !id.includes('@') ? `${id}@shigaku.local` : id);
+  const info = Object.prototype.hasOwnProperty.call(STUDENT_RECORDS, normalizedId)
+    ? STUDENT_RECORDS[normalizedId]
+    : null;
+  const escapeText = value => String(value).replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
+  const displayId = id.endsWith('@shigaku.local')
+    ? id.slice(0, -'@shigaku.local'.length)
+    : id;
+  const name = info ? info.name : (id ? '未登録の生徒' : '生徒不明');
+  return `<span style="display:block; font-weight:bold;">${escapeText(name)}</span>
+    <span class="student-id-sub">${escapeText(displayId || 'ID不明')}</span>`;
+}
+
 async function loadSocialLogs() {
   const tbody = document.getElementById("social-logs-tbody");
   if (!tbody) return;
@@ -1160,7 +1180,7 @@ async function loadSocialLogs() {
         dateStr = new Date(d.timestamp).toLocaleString("ja-JP", { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
       }
 
-      const student = (d.studentId || "不明").replace("@shigaku.local", "");
+      const student = renderSocialStudent(d.studentId);
       const topic = d.quizTitle || d.chapterKey || "単元テスト";
       const totalQ = d.total || d.totalQuestions || 10;
       const score = d.score !== undefined ? d.score : 0;
@@ -1199,7 +1219,7 @@ async function loadSocialSummary() {
 
     tbody.innerHTML = snap.docs.map(dDoc => {
       const d = dDoc.data();
-      const student = (d.studentId || dDoc.id).replace("@shigaku.local", "");
+      const student = renderSocialStudent(d.studentId || dDoc.id);
       const clearedCount = Array.isArray(d.clearedUnits) ? d.clearedUnits.length : 0;
       
       let medalsCount = 0;
