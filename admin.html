@@ -975,6 +975,154 @@ document.getElementById(
 
 
 // ==========================================
+// 個人の詳細カルテ・メッセージ送信（旧版から復元）
+// ==========================================
+
+  const modal = document.getElementById('student-modal');
+  const closeBtn = document.getElementById('modal-close-btn');
+  closeBtn.onclick = () => modal.style.display = "none";
+  window.onclick = (event) => { if (event.target == modal) modal.style.display = "none"; }
+
+  function openStudentModal(student, studentName) {
+    currentModalStudentId = student.id; 
+    
+    document.getElementById('modal-name').textContent = studentName;
+    document.getElementById('modal-id').textContent = student.id;
+    document.getElementById('modal-count7').textContent = student.count7;
+    document.getElementById('modal-count30').textContent = student.count30;
+    
+    document.getElementById('teacher-msg-input').value = "";
+    document.getElementById('msg-send-status').textContent = "";
+    
+    const pdfInputElement = document.getElementById('pdf-upload-input');
+    if (pdfInputElement) pdfInputElement.value = "";
+
+    const subjectsContainer = document.getElementById('modal-subjects-container');
+    subjectsContainer.innerHTML = '';
+    if (student.count30 === 0) {
+      subjectsContainer.innerHTML = '<div style="color: #888; font-size: 0.9em;">データがありません</div>';
+    } else {
+      const sortedSubjects = Object.entries(student.subjects).sort((a, b) => b[1] - a[1]);
+      sortedSubjects.forEach(([subjName, count]) => {
+        const percentage = Math.round((count / student.count30) * 100);
+        let barColor = "#95a5a6";
+        if (subjName.includes("英語")) barColor = "#e74c3c";
+        else if (subjName.includes("数学") || subjName.includes("算数")) barColor = "#3498db";
+        else if (subjName.includes("国語")) barColor = "#e67e22";
+        else if (subjName.includes("理科")) barColor = "#2ecc71";
+        else if (subjName.includes("社会")) barColor = "#9b59b6";
+
+        subjectsContainer.innerHTML += `
+          <div class="subject-bar-container">
+            <div class="subject-name"><span>${subjName}</span><span>${count}回 <span style="color:#888; font-size:0.9em; font-weight:normal;">(${percentage}%)</span></span></div>
+            <div class="bar-bg"><div class="bar-fill" style="width: ${percentage}%; background-color: ${barColor};"></div></div>
+          </div>`;
+      });
+    }
+
+    const historyList = document.getElementById('modal-recent-list');
+    historyList.innerHTML = '';
+    modal.style.display = "flex";
+
+    try {
+      const shortId = student.id.includes('@') ? student.id.split('@')[0] : student.id;
+      const myRecords = allRecentRecords.filter(data => {
+         const sId = data.studentId;
+         if (!sId) return false;
+         return sId === student.id || sId === shortId || (student.id === "guest" && (sId === "ゲスト" || sId === "guest"));
+      });
+
+      myRecords.sort((a, b) => b.timestampMs - a.timestampMs);
+      const top10 = myRecords.slice(0, 10);
+
+      if (top10.length === 0) {
+        historyList.innerHTML = '<li style="color:#888;">学習履歴がありません</li>';
+      } else {
+        top10.forEach((data) => {
+          const dateObj = new Date(data.timestampMs);
+          const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '不明';
+          const subject = data.subject || '教科不明';
+          const unit = data.unit || '';
+          historyList.innerHTML += `<li><span style="color:#666; font-size:0.9em; margin-right:10px;">${dateStr}</span> <strong>${subject}</strong> <br><span style="font-size:0.9em; color:#444;">${unit}</span></li>`;
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    loadSentMessages(student.id);
+  }
+
+  // 送信処理（色データを含めてFirebaseへ保存）
+  document.getElementById('send-msg-btn').addEventListener('click', async () => {
+    const msgInput = document.getElementById('teacher-msg-input');
+    const statusText = document.getElementById('msg-send-status');
+    const targetTypeElement = document.getElementById('msg-target-type');
+    const colorSelectElement = document.getElementById('msg-color-select');
+    const pdfInputElement = document.getElementById('pdf-upload-input');
+    
+    let message = msgInput.value.trim();
+    const hasFile = pdfInputElement && pdfInputElement.files.length > 0;
+    const textColor = colorSelectElement ? colorSelectElement.value : 'navy';
+
+    if (!message && !hasFile) {
+      statusText.textContent = "メッセージを入力するか、PDFを添付してください";
+      return;
+    }
+
+    if (!message && hasFile) {
+      message = "📁 プリントが届きました（添付ファイルを確認してください）";
+    }
+
+    statusText.style.color = "#333";
+    statusText.textContent = "送信中... (PDFアップロード中はそのままお待ちください)";
+
+    try {
+      let pdfUrl = null;
+
+      if (hasFile) {
+        const file = pdfInputElement.files[0];
+        if (file.type !== "application/pdf") {
+           statusText.textContent = "エラー：PDFファイルを選択してください。";
+           statusText.style.color = "#e74c3c";
+           return;
+        }
+        pdfUrl = await uploadPdfToStorage(file);
+      }
+
+      let target = currentModalStudentId; 
+      if (targetTypeElement && targetTypeElement.value !== "individual") {
+        target = targetTypeElement.value;
+      }
+
+      await addDoc(collection(db, "teacher_messages"), {
+        target: target,
+        studentId: currentModalStudentId, 
+        message: message,
+        textColor: textColor,
+        pdfUrl: pdfUrl,
+        isRead: false,
+        timestamp: serverTimestamp()
+      });
+
+      statusText.style.color = "#27ae60";
+      statusText.textContent = "✅ 送信しました！";
+      
+      msgInput.value = ""; 
+      if (pdfInputElement) pdfInputElement.value = ""; 
+      if (targetTypeElement) targetTypeElement.value = "individual";
+      if (colorSelectElement) colorSelectElement.value = "navy";
+
+      loadSentMessages(currentModalStudentId);
+
+    } catch (e) {
+      console.error(e);
+      statusText.style.color = "#e74c3c";
+      statusText.textContent = "❌ 送信に失敗しました";
+    }
+  });
+
+// ==========================================
 // 初回起動
 // ==========================================
 
