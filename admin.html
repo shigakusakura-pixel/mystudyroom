@@ -13,6 +13,13 @@
   .update-btn { background: #2963B1; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
   .update-btn:hover { background: #3572c0; }
   .cache-notice { font-size: 0.9em; color: #444; }
+  .dashboard-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+  .learning-log-cleanup { display: flex; align-items: center; gap: 6px; background: #fee2e2; padding: 6px 8px; border-radius: 6px; border: 1px solid #fca5a5; }
+  .learning-log-cleanup label { font-size: 0.8em; font-weight: bold; color: #991b1b; white-space: nowrap; }
+  .retention-note { font-size: 0.75em; color: #7f1d1d; white-space: nowrap; }
+  .delete-learning-btn { padding: 6px 10px; background: #dc2626; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em; font-weight: bold; }
+  .delete-learning-btn:hover { background: #b91c1c; }
+  .delete-learning-btn:disabled { background: #94a3b8; cursor: wait; }
 
   table { width: 100%; border-collapse: collapse; margin-top: 10px; }
   th, td { padding: 14px; text-align: left; border-bottom: 1px solid #e2e6ee; }
@@ -52,6 +59,13 @@
   .message-box textarea { width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 8px; margin-bottom: 8px; resize: vertical; box-sizing: border-box; }
   .send-btn { background: #3498db; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
   .send-btn:hover { background: #2980b9; }
+
+  @media (max-width: 820px) {
+    body { padding: 12px; }
+    .update-bar { align-items: flex-start; flex-direction: column; }
+    .dashboard-actions { width: 100%; justify-content: flex-start; }
+    .learning-log-cleanup { flex-wrap: wrap; }
+  }
 </style>
 </head>
 <body>
@@ -64,7 +78,14 @@
       💡 <strong>通信量節約モード稼働中</strong>（Firebaseへの通信を抑えています）<br>
       データ取得時刻: <strong id="last-update-time" style="color:#e74c3c;">未取得</strong>
     </div>
-    <button id="force-update-btn" class="update-btn">🔄 最新データに更新</button>
+    <div class="dashboard-actions">
+      <div class="learning-log-cleanup">
+        <label>🗑️ 学習履歴整理:</label>
+        <span class="retention-note">当月＋前月を保持</span>
+        <button id="delete-learning-records-btn" class="delete-learning-btn" type="button">2か月より前を削除</button>
+      </div>
+      <button id="force-update-btn" class="update-btn">🔄 最新データに更新</button>
+    </div>
   </div>
   
   <p style="font-size: 0.9em; color: #666;">※生徒の行をクリックすると、個人の詳細カルテが表示されます。</p>
@@ -90,11 +111,11 @@
     <h3 style="margin: 0; color: #0F3875;">🗺️ 志学社会クエスト 学習進捗・直近ログ</h3>
     
     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-      <!-- ★ 月指定ログ整理機能（メダル・進捗は保持） -->
+      <!-- ★ 2か月保持ログ整理機能（メダル・進捗は保持） -->
       <div style="display: flex; align-items: center; gap: 6px; background: #FEE2E2; padding: 4px 8px; border-radius: 6px; border: 1px solid #FCA5A5;">
         <span style="font-size: 0.75rem; font-weight: bold; color: #991B1B;">🗑️ ログ整理:</span>
-        <input type="month" id="delete-target-month" style="font-size: 0.8rem; padding: 2px 4px; border: 1px solid #CBD5E1; border-radius: 4px;">
-        <button onclick="deleteMonthlyLogs()" style="padding: 4px 10px; background: #DC2626; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">以前を削除</button>
+        <span style="font-size: 0.75rem; color: #7F1D1D; white-space: nowrap;">当月＋前月を保持</span>
+        <button id="delete-social-logs-btn" onclick="deleteMonthlyLogs()" style="padding: 4px 10px; background: #DC2626; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">2か月より前を削除</button>
       </div>
 
       <button onclick="loadSocialQuestAdminData()" style="padding: 6px 14px; background: #0F3875; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">🔄 最新に更新</button>
@@ -219,7 +240,8 @@
     addDoc, 
     serverTimestamp, 
     deleteDoc, 
-    doc 
+    doc,
+    writeBatch
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
@@ -975,6 +997,149 @@ document.getElementById(
 
 
 // ==========================================
+// 当月と前月を残し、それ以前の履歴を一括削除
+// ==========================================
+
+function getTwoMonthRetentionPeriod() {
+  const now = new Date();
+
+  // 当月1日から1か月戻した日 = 保持する前月の1日
+  const keepFrom = new Date(
+    now.getFullYear(),
+    now.getMonth() - 1,
+    1,
+    0,
+    0,
+    0,
+    0
+  );
+
+  // keepFromの前日 = 削除対象に含める最終日
+  const deleteThrough = new Date(
+    keepFrom.getFullYear(),
+    keepFrom.getMonth(),
+    0
+  );
+
+  const deleteThroughLabel =
+    `${deleteThrough.getFullYear()}年` +
+    `${deleteThrough.getMonth() + 1}月` +
+    `${deleteThrough.getDate()}日`;
+
+  return {
+    keepFrom,
+    deleteThroughLabel
+  };
+}
+
+async function deleteRecordsOlderThanTwoMonths({
+  collectionName,
+  recordLabel,
+  buttonId,
+  protectedMessage,
+  afterDelete
+}) {
+  const deleteButton = document.getElementById(buttonId);
+  if (!deleteButton) return;
+
+  const originalButtonText = deleteButton.textContent;
+  const { keepFrom, deleteThroughLabel } =
+    getTwoMonthRetentionPeriod();
+
+  deleteButton.disabled = true;
+  deleteButton.textContent = '確認中...';
+
+  try {
+    const recordsQuery = query(
+      collection(db, collectionName),
+      where('timestamp', '<', keepFrom)
+    );
+
+    const recordsSnapshot = await getDocs(recordsQuery);
+    const deleteCount = recordsSnapshot.size;
+
+    if (deleteCount === 0) {
+      alert(
+        `${deleteThroughLabel}以前の${recordLabel}は見つかりませんでした。`
+      );
+      return;
+    }
+
+    const confirmed = confirm(
+      `【削除前の最終確認】\n` +
+      `当月と前月の2か月分を残し、${deleteThroughLabel}以前の「${recordLabel}」を ${deleteCount} 件削除します。\n\n` +
+      `この操作は元に戻せません。${protectedMessage}\n\n` +
+      `本当に削除しますか？`
+    );
+
+    if (!confirmed) return;
+
+    deleteButton.textContent = '削除中...';
+
+    // Firestoreの一括書き込み上限に余裕を持たせ、400件ずつ削除する
+    const batchSize = 400;
+    const targetDocuments = recordsSnapshot.docs;
+
+    for (
+      let startIndex = 0;
+      startIndex < targetDocuments.length;
+      startIndex += batchSize
+    ) {
+      const batch = writeBatch(db);
+      const chunk = targetDocuments.slice(
+        startIndex,
+        startIndex + batchSize
+      );
+
+      chunk.forEach(documentSnapshot => {
+        batch.delete(documentSnapshot.ref);
+      });
+
+      await batch.commit();
+    }
+
+    if (afterDelete) {
+      await afterDelete();
+    }
+
+    alert(
+      `✅ ${deleteCount} 件の${recordLabel}を削除しました。\n` +
+      `当月と前月のデータは保持されています。`
+    );
+
+  } catch (error) {
+    console.error(`${recordLabel}の削除エラー:`, error);
+    alert(
+      '削除中にエラーが発生しました: ' + error.message
+    );
+
+  } finally {
+    deleteButton.disabled = false;
+    deleteButton.textContent = originalButtonText;
+  }
+}
+
+document.getElementById(
+  'delete-learning-records-btn'
+).addEventListener(
+  'click',
+  () => deleteRecordsOlderThanTwoMonths({
+    collectionName: 'learning_records',
+    recordLabel: '生徒学習履歴',
+    buttonId: 'delete-learning-records-btn',
+    protectedMessage:
+      '生徒情報・メッセージ・社会クエストのログや進捗は削除されません。',
+    afterDelete: async () => {
+      localStorage.removeItem('mystudy_cache_time');
+      localStorage.removeItem('mystudy_student_map');
+      localStorage.removeItem('mystudy_recent_records');
+      await initDashboard(true);
+    }
+  })
+);
+
+
+// ==========================================
 // 個人の詳細カルテ・メッセージ送信（旧版から復元）
 // ==========================================
 
@@ -1250,53 +1415,18 @@ window.loadSocialQuestAdminData = async function() {
   await Promise.all([loadSocialLogs(), loadSocialSummary()]);
 };
 
-// ★ 月指定での解答ログ一括削除（quest_progress のメダル・進捗は完全温存）
+// ★ 当月と前月を残して解答ログを一括削除（quest_progress は完全温存）
 window.deleteMonthlyLogs = async function() {
-  const monthInput = document.getElementById("delete-target-month");
-  if (!monthInput || !monthInput.value) {
-    alert("削除基準とする年月（例: 2026-08）を選択してください。");
-    return;
-  }
-
-  const [year, month] = monthInput.value.split("-").map(Number);
-  const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999).getTime();
-
-  const confirmMsg = `【削除前の最終確認】\n${year}年${month}月末日 以前の「解答ログ（quest_logs）」をすべて削除しますか？\n\n※ 生徒が獲得したメダルやクリア単元などの進捗データはそのまま保持されます。`;
-  if (!confirm(confirmMsg)) return;
-
-  try {
-    const snap = await getDocs(collection(db, "quest_logs"));
-    let deleteCount = 0;
-    const deletePromises = [];
-
-    snap.forEach((dDoc) => {
-      const data = dDoc.data();
-      let logTimeMs = 0;
-      if (data.timestamp?.toDate) {
-        logTimeMs = data.timestamp.toDate().getTime();
-      } else if (data.timestamp) {
-        logTimeMs = new Date(data.timestamp).getTime();
-      }
-
-      if (logTimeMs > 0 && logTimeMs <= endOfMonth) {
-        deletePromises.push(deleteDoc(doc(db, "quest_logs", dDoc.id)));
-        deleteCount++;
-      }
-    });
-
-    if (deleteCount === 0) {
-      alert(`${year}年${month}月以前の対象ログは見つかりませんでした。`);
-      return;
+  await deleteRecordsOlderThanTwoMonths({
+    collectionName: 'quest_logs',
+    recordLabel: '社会クエスト解答ログ',
+    buttonId: 'delete-social-logs-btn',
+    protectedMessage:
+      '生徒が獲得したメダル・クリア単元・苦手問題などの進捗データは保持されます。',
+    afterDelete: async () => {
+      await window.loadSocialQuestAdminData();
     }
-
-    await Promise.all(deletePromises);
-    alert(`✅ ${deleteCount} 件の過去ログを削除しました。\n生徒のメダル・進捗データは安全に保持されています。`);
-
-    window.loadSocialQuestAdminData();
-  } catch (err) {
-    console.error("ログ削除エラー:", err);
-    alert("削除中にエラーが発生しました: " + err.message);
-  }
+  });
 };
 
 window.switchSocialTab = function(tab) {
