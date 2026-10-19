@@ -217,6 +217,14 @@
         <input type="file" id="pdf-upload-input" accept="application/pdf" style="font-size: 0.85em; cursor: pointer; color: #2c3e50;">
       </div>
 
+      <div style="font-size:0.85em; margin:8px 0;" role="status" id="pdf-auth-status">PDF送信用のログイン状態を確認中...</div>
+      <div id="pdf-auth-panel" hidden style="margin:8px 0;">
+        <label for="pdf-login-email">講師ID</label>
+        <input id="pdf-login-email" type="text" autocomplete="username" placeholder="teacher@shigaku.local">
+        <label for="pdf-login-password">パスワード</label>
+        <input id="pdf-login-password" type="password" autocomplete="current-password">
+        <button id="pdf-login-btn" type="button">ログイン</button>
+      </div>
       <textarea id="teacher-msg-input" rows="2" placeholder="例：今週はよく頑張っているね！土曜特訓もこの調子で！"></textarea>
       <button id="send-msg-btn" class="send-btn">送信する</button>
       <span id="msg-send-status" style="margin-left: 10px; font-size: 0.85em; color: #e74c3c;"></span>
@@ -243,6 +251,7 @@
     doc,
     writeBatch
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
   const firebaseConfig = {
@@ -259,6 +268,60 @@
     experimentalForceLongPolling: true,
   });
   const storage = getStorage(app);
+  const auth = getAuth(app);
+  const pdfAuthPanel = document.getElementById('pdf-auth-panel');
+  const pdfAuthStatus = document.getElementById('pdf-auth-status');
+  // 保存済みのログイン状態が復元されてから、添付送信を開始します。
+  const authReady = new Promise((resolve, reject) => {
+    onAuthStateChanged(auth, user => {
+      pdfAuthPanel.hidden = Boolean(user);
+      pdfAuthStatus.textContent = user
+        ? `PDF送信用アカウント: ${user.email || 'ログイン済み'}`
+        : 'PDFを添付するには、送信権限のある講師アカウントでログインしてください。';
+      resolve(user);
+    }, reject);
+  });
+  // 初期化時のエラーは送信時にも処理します。
+  authReady.catch(error => console.error('PDF送信の認証初期化エラー', error));
+
+  document.getElementById('pdf-login-btn').addEventListener('click', async () => {
+    const button = document.getElementById('pdf-login-btn');
+    const email = document.getElementById('pdf-login-email').value.trim();
+    const passwordInput = document.getElementById('pdf-login-password');
+    if (!email || !passwordInput.value) {
+      pdfAuthStatus.textContent = '講師のIDとパスワードを入力してください。';
+      return;
+    }
+    button.disabled = true;
+    pdfAuthStatus.textContent = 'ログイン中...';
+    try {
+      await signInWithEmailAndPassword(auth, email.includes('@') ? email : `${email}@shigaku.local`, passwordInput.value);
+      passwordInput.value = '';
+      pdfAuthStatus.textContent = `ログインしました: ${auth.currentUser.email}。「送信する」を押してください。`;
+    } catch (error) {
+      console.error('PDF送信用ログイン失敗', error);
+      pdfAuthStatus.textContent = error.code === 'auth/network-request-failed'
+        ? '通信できません。接続を確認して、もう一度ログインしてください。'
+        : 'ログインできませんでした。講師のID・パスワードを確認してください。';
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  function describeSendError(error, stage) {
+    const code = error.code || 'unknown';
+    const messages = {
+      'storage/unauthenticated': '講師アカウントでログインし直してください。',
+      'storage/unauthorized': 'PDF保存先への送信権限がありません。Firebase Storageのアクセスルールを確認してください。',
+      'storage/bucket-not-found': 'PDF保存先が見つかりません。Firebase Storageの作成状況と保存先設定を確認してください。',
+      'storage/project-not-found': 'PDF保存先のFirebaseプロジェクトを確認してください。',
+      'storage/quota-exceeded': 'PDF保存先の利用上限・請求設定を確認してください。',
+      'storage/retry-limit-exceeded': 'PDFの転送が完了しませんでした。通信状態と保存先の設定を確認してください。',
+      'permission-denied': 'メッセージの保存権限がありません。Firestoreのアクセスルールを確認してください。',
+      'unavailable': '通信できません。接続を確認してから再送してください。'
+    };
+    return `❌ ${stage}に失敗しました。${messages[code] || '接続やFirebaseの設定を確認してください。'}（${code}）`;
+  }
 
   const STUDENT_RECORDS = {
     "student001@shigaku.local": { name: "後田 莉乃葉", grade: "grade_2" },
@@ -1226,6 +1289,11 @@ document.getElementById(
     const colorSelectElement = document.getElementById('msg-color-select');
     const pdfInputElement = document.getElementById('pdf-upload-input');
     
+    const sendButton = document.getElementById('send-msg-btn');
+    if (sendButton.disabled) return;
+    const studentId = currentModalStudentId;
+    const target = targetTypeElement && targetTypeElement.value !== 'individual'
+      ? targetTypeElement.value : studentId;
     let message = msgInput.value.trim();
     const hasFile = pdfInputElement && pdfInputElement.files.length > 0;
     const textColor = colorSelectElement ? colorSelectElement.value : 'navy';
@@ -1242,10 +1310,18 @@ document.getElementById(
     statusText.style.color = "#333";
     statusText.textContent = "送信中... (PDFアップロード中はそのままお待ちください)";
 
+    sendButton.disabled = true;
+    let stage = 'PDFのアップロード';
     try {
       let pdfUrl = null;
 
       if (hasFile) {
+        await authReady;
+        if (!auth.currentUser) {
+          const error = new Error('PDF送信用のログインが必要です');
+          error.code = 'storage/unauthenticated';
+          throw error;
+        }
         const file = pdfInputElement.files[0];
         if (file.type !== "application/pdf") {
            statusText.textContent = "エラー：PDFファイルを選択してください。";
@@ -1255,14 +1331,10 @@ document.getElementById(
         pdfUrl = await uploadPdfToStorage(file);
       }
 
-      let target = currentModalStudentId; 
-      if (targetTypeElement && targetTypeElement.value !== "individual") {
-        target = targetTypeElement.value;
-      }
-
+      stage = 'メッセージの保存';
       await addDoc(collection(db, "teacher_messages"), {
         target: target,
-        studentId: currentModalStudentId, 
+        studentId: studentId,
         message: message,
         textColor: textColor,
         pdfUrl: pdfUrl,
@@ -1283,7 +1355,9 @@ document.getElementById(
     } catch (e) {
       console.error(e);
       statusText.style.color = "#e74c3c";
-      statusText.textContent = "❌ 送信に失敗しました";
+      statusText.textContent = describeSendError(e, hasFile ? stage : 'メッセージの保存');
+    } finally {
+      sendButton.disabled = false;
     }
   });
 
