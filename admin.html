@@ -351,6 +351,15 @@
   };
   const REGISTERED_STUDENTS = Object.keys(STUDENT_RECORDS);
 
+  function normalizeStudentId(value) {
+    if (value === null || value === undefined) return null;
+    let id = String(value).trim().toLowerCase();
+    if (!id) return null;
+    if (id === "ゲスト" || id === "guest") return "guest";
+    if (!id.includes('@')) id += '@shigaku.local';
+    return id;
+  }
+
   let currentModalStudentId = ""; 
   let allRecentRecords = []; 
 
@@ -491,9 +500,14 @@ async function initDashboard(forceUpdate = false) {
       });
 
       // ★ 未登録studentIdの履歴もキャッシュから除外
-      allRecentRecords = oldRecentRecords.filter(record =>
-        REGISTERED_STUDENTS.includes(record.studentId)
-      );
+      allRecentRecords = oldRecentRecords
+        .map(record => ({
+          ...record,
+          studentId: normalizeStudentId(record.studentId)
+        }))
+        .filter(record =>
+          REGISTERED_STUDENTS.includes(record.studentId)
+        );
 
       // 整理済みキャッシュを保存し直す
       localStorage.setItem(
@@ -599,35 +613,8 @@ async function fetchFromFirebaseAndAggregate() {
       }
 
 
-      let sId = data.studentId;
-
-
-      // ======================================
-      // studentIdを正規化
-      // ======================================
-
-      if (sId) {
-
-        sId = String(sId).trim();
-
-        if (
-          sId === "ゲスト" ||
-          sId === "guest"
-        ) {
-
-          sId = "guest";
-
-        } else if (!sId.includes('@')) {
-
-          sId = sId + '@shigaku.local';
-
-        }
-
-      } else {
-
-        return;
-
-      }
+      const sId = normalizeStudentId(data.studentId);
+      if (!sId) return;
 
 
       // ======================================
@@ -686,6 +673,7 @@ async function fetchFromFirebaseAndAggregate() {
 
       allRecentRecords.push({
 
+        uid: data.uid || null,
         studentId: sId,
 
         subject:
