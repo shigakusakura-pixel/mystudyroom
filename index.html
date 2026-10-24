@@ -322,7 +322,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 
   async function handleLogin() {
     if (!emailInput || !passInput) return;
-    let email = emailInput.value.trim();
+    let email = emailInput.value.trim().toLowerCase();
     const pass = passInput.value.trim();
 
     if (!email || !pass) {
@@ -433,19 +433,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     if (loadingWrapper) loadingWrapper.style.display = 'none'; 
     
     if (user) {
-      currentStudentId = user.email;
-      const sId = user.email.split('@')[0]; // teacher, student001
-
-      // 全ボタンのリンク先末尾に ?student=〇〇 をセット
-      document.querySelectorAll('a').forEach(link => {
-        const href = link.getAttribute('href');
-        if (href && !href.startsWith('#') && !href.startsWith('javascript:') && link.id !== 'logout-btn') {
-          if (!href.includes('shigaku-mystudy.com')) {
-            const baseHref = href.split('?')[0];
-            link.href = `${baseHref}?student=${encodeURIComponent(sId)}`;
-          }
-        }
-      });
+      currentStudentId = user.email.trim().toLowerCase();
 
       if (loginWrapper) loginWrapper.style.display = 'none';
       if (portalContent) portalContent.style.display = 'block';
@@ -467,10 +455,12 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     
     if (href.includes("shigaku-mystudy.com")) {
       const user = auth.currentUser;
-      const sId = user && user.email ? user.email.split('@')[0] : 'guest';
+      if (!user || !user.email) return;
+      const canonicalStudentId = user.email.trim().toLowerCase();
       try {
         await addDoc(collection(db, "learning_records"), {
-          studentId: sId,
+          uid: user.uid,
+          studentId: canonicalStudentId,
           subject: "授業動画", unit: "動画視聴", questionId: "視聴開始", action: "視聴",
           correct: 1, total: 1, timestamp: serverTimestamp()
         });
