@@ -211,7 +211,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 
     <!-- 社会クエスト（枠線なし・高さ統一・改行防止） -->
    <!-- 社会クエスト（折り返し完全防止版） -->
-    <a class="card" href="https://shigaku-social-quest.web.app" target="_blank">
+    <a id="social-quest-link" class="card" href="https://shigaku-social-quest.web.app/" target="_blank">
       <div class="card-icon">⚔️</div>
       <div class="card-body">
         <div class="card-title">社会クエスト</div>
@@ -315,6 +315,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
   };
 
   let currentStudentId = "";
+  const socialQuestLink = document.getElementById('social-quest-link');
 
   // 1. ログイン処理
   const loginBtn = document.getElementById('login-btn') || document.querySelector('button[type="submit"]') || document.querySelector('.login-btn');
@@ -436,12 +437,19 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     if (user) {
       currentStudentId = user.email.trim().toLowerCase();
 
+      if (socialQuestLink) {
+        socialQuestLink.href = `https://shigaku-social-quest.web.app/?student=${encodeURIComponent(currentStudentId)}`;
+      }
+
       if (loginWrapper) loginWrapper.style.display = 'none';
       if (portalContent) portalContent.style.display = 'block';
       if (logoutBtn) logoutBtn.style.display = 'block'; 
       loadPersonalMessage(currentStudentId);
     } else {
       currentStudentId = "";
+      if (socialQuestLink) {
+        socialQuestLink.href = 'https://shigaku-social-quest.web.app/';
+      }
       if (portalContent) portalContent.style.display = 'none';
       if (logoutBtn) logoutBtn.style.display = 'none'; 
       if (loginWrapper) loginWrapper.style.display = 'flex';
