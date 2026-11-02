@@ -1304,8 +1304,23 @@ document.getElementById(
     try {
       let pdfUrl = null;
 
-      if (hasFile) {
+     if (hasFile) {
         await authReady;
+        // ログイン前でも、講師ID・パスワード欄に入力があれば自動でログインする
+        if (!auth.currentUser) {
+          const emailValue = document.getElementById('pdf-login-email').value.trim();
+          const passInput = document.getElementById('pdf-login-password');
+          if (emailValue && passInput.value) {
+            stage = '講師ログイン';
+            statusText.textContent = "講師アカウントでログイン中...";
+            const loginEmail = emailValue.includes('@') ? emailValue : `${emailValue}@shigaku.local`;
+            await signInWithEmailAndPassword(auth, loginEmail, passInput.value);
+            passInput.value = '';
+            stage = 'PDFのアップロード';
+            statusText.textContent = "送信中... (PDFアップロード中はそのままお待ちください)";
+          }
+        }
+        // ↓ここから下は元のコードと同じ
         if (!auth.currentUser) {
           const error = new Error('PDF送信用のログインが必要です');
           error.code = 'storage/unauthenticated';
