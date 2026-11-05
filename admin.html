@@ -114,8 +114,11 @@
 <!-- 社会クエスト 学習進捗・ログ一覧エリア -->
 <div class="admin-card" style="margin-top: 24px; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); max-width: 1000px; margin-left: auto; margin-right: auto;">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-    <h3 style="margin: 0; color: #0F3875;">🗺️ 志学社会クエスト 学習進捗・直近ログ</h3>
-    
+    <div>
+      <h3 style="margin: 0; color: #0F3875;">🗺️ 志学社会クエスト 学習進捗・直近ログ</h3>
+      <div id="social-refresh-status" role="status" aria-live="polite" style="margin-top: 6px; font-size: 0.78rem; font-weight: bold; color: #64748B;">Firebaseの最新データを確認中...</div>
+    </div>
+
     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
       <!-- ★ 2か月保持ログ整理機能（メダル・進捗は保持） -->
       <div style="display: flex; align-items: center; gap: 6px; background: #FEE2E2; padding: 4px 8px; border-radius: 6px; border: 1px solid #FCA5A5;">
@@ -124,7 +127,7 @@
         <button id="delete-social-logs-btn" onclick="deleteMonthlyLogs()" style="padding: 4px 10px; background: #DC2626; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">2か月より前を削除</button>
       </div>
 
-      <button onclick="loadSocialQuestAdminData()" style="padding: 6px 14px; background: #0F3875; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">🔄 最新に更新</button>
+      <button id="social-refresh-btn" onclick="loadSocialQuestAdminData()" style="padding: 6px 14px; background: #0F3875; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">🔄 最新に更新</button>
     </div>
   </div>
 
@@ -1406,101 +1409,156 @@ function renderSocialStudent(rawId) {
 
 async function loadSocialLogs() {
   const tbody = document.getElementById("social-logs-tbody");
-  if (!tbody) return;
+  if (!tbody) return 0;
 
-  try {
-    const snap = await getDocs(collection(db, "quest_logs"));
+  const snap = await getDocsFromServer(collection(db, "quest_logs"));
 
-    if (snap.empty) {
-      tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #94A3B8;">該当する学習ログはありません。</td></tr>`;
-      return;
+  if (snap.empty) {
+    tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #94A3B8;">該当する学習ログはありません。</td></tr>`;
+    return 0;
+  }
+
+  const records = snap.docs.map(dDoc => dDoc.data());
+  records.sort((a, b) => {
+    const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.timestamp ? new Date(a.timestamp).getTime() : 0);
+    const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : (b.timestamp ? new Date(b.timestamp).getTime() : 0);
+    return timeB - timeA;
+  });
+
+  const displayRecords = records.slice(0, 50);
+
+  tbody.innerHTML = displayRecords.map(d => {
+    let dateStr = "-";
+    if (d.timestamp?.toDate) {
+      dateStr = d.timestamp.toDate().toLocaleString("ja-JP", { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    } else if (d.timestamp) {
+      dateStr = new Date(d.timestamp).toLocaleString("ja-JP", { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
     }
 
-    const records = snap.docs.map(dDoc => dDoc.data());
-    records.sort((a, b) => {
-      const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.timestamp ? new Date(a.timestamp).getTime() : 0);
-      const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : (b.timestamp ? new Date(b.timestamp).getTime() : 0);
-      return timeB - timeA;
-    });
+    const student = renderSocialStudent(d.studentId);
+    const topic = d.quizTitle || d.chapterKey || "単元テスト";
+    const totalQ = d.total || d.totalQuestions || 10;
+    const score = d.score !== undefined ? d.score : 0;
+    const scoreText = `${score} / ${totalQ} 点`;
 
-    const displayRecords = records.slice(0, 50);
+    const accPercent = Math.round((score / totalQ) * 100);
+    const badgeColor = accPercent >= 80 ? "#15803D" : (accPercent >= 50 ? "#D97706" : "#DC2626");
 
-    tbody.innerHTML = displayRecords.map(d => {
-      let dateStr = "-";
-      if (d.timestamp?.toDate) {
-        dateStr = d.timestamp.toDate().toLocaleString("ja-JP", { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-      } else if (d.timestamp) {
-        dateStr = new Date(d.timestamp).toLocaleString("ja-JP", { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-      }
+    return `
+      <tr style="border-bottom: 1px solid #E2E8F0;">
+        <td style="padding: 10px; color: #64748B; font-size: 0.8rem;">${dateStr}</td>
+        <td style="padding: 10px; font-weight: bold; color: #0F3875;">${student}</td>
+        <td style="padding: 10px;">${topic}</td>
+        <td style="padding: 10px; font-weight: bold;">${scoreText}</td>
+        <td style="padding: 10px; font-weight: bold; color: ${badgeColor};">${accPercent}%</td>
+      </tr>
+    `;
+  }).join("");
 
-      const student = renderSocialStudent(d.studentId);
-      const topic = d.quizTitle || d.chapterKey || "単元テスト";
-      const totalQ = d.total || d.totalQuestions || 10;
-      const score = d.score !== undefined ? d.score : 0;
-      const scoreText = `${score} / ${totalQ} 点`;
-
-      const accPercent = Math.round((score / totalQ) * 100);
-      const badgeColor = accPercent >= 80 ? "#15803D" : (accPercent >= 50 ? "#D97706" : "#DC2626");
-
-      return `
-        <tr style="border-bottom: 1px solid #E2E8F0;">
-          <td style="padding: 10px; color: #64748B; font-size: 0.8rem;">${dateStr}</td>
-          <td style="padding: 10px; font-weight: bold; color: #0F3875;">${student}</td>
-          <td style="padding: 10px;">${topic}</td>
-          <td style="padding: 10px; font-weight: bold;">${scoreText}</td>
-          <td style="padding: 10px; font-weight: bold; color: ${badgeColor};">${accPercent}%</td>
-        </tr>
-      `;
-    }).join("");
-  } catch (err) {
-    console.error("Logs load error:", err);
-    tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #DC2626;">ログの読み込みに失敗しました。</td></tr>`;
-  }
+  return snap.size;
 }
 
 async function loadSocialSummary() {
   const tbody = document.getElementById("social-summary-tbody");
-  if (!tbody) return;
+  if (!tbody) return 0;
 
-  try {
-    const snap = await getDocs(collection(db, "quest_progress"));
+  const snap = await getDocsFromServer(collection(db, "quest_progress"));
 
-    if (snap.empty) {
-      tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #94A3B8;">進行データがありません。</td></tr>`;
-      return;
+  if (snap.empty) {
+    tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #94A3B8;">進行データがありません。</td></tr>`;
+    return 0;
+  }
+
+  tbody.innerHTML = snap.docs.map(dDoc => {
+    const d = dDoc.data();
+    const student = renderSocialStudent(d.studentId || dDoc.id);
+    const clearedCount = Array.isArray(d.clearedUnits) ? d.clearedUnits.length : 0;
+
+    let medalsCount = 0;
+    if (d.medals && typeof d.medals === "object") {
+      Object.values(d.medals).forEach(v => { if (v) medalsCount++; });
     }
 
-    tbody.innerHTML = snap.docs.map(dDoc => {
-      const d = dDoc.data();
-      const student = renderSocialStudent(d.studentId || dDoc.id);
-      const clearedCount = Array.isArray(d.clearedUnits) ? d.clearedUnits.length : 0;
-      
-      let medalsCount = 0;
-      if (d.medals && typeof d.medals === "object") {
-        Object.values(d.medals).forEach(v => { if (v) medalsCount++; });
-      }
-      
-      const weakCount = Array.isArray(d.weakQuestions) ? d.weakQuestions.length : 0;
-      const lastDate = d.lastAccessed && d.lastAccessed.toDate ? d.lastAccessed.toDate().toLocaleString("ja-JP") : "-";
+    const weakCount = Array.isArray(d.weakQuestions) ? d.weakQuestions.length : 0;
+    const lastDate = d.lastAccessed && d.lastAccessed.toDate ? d.lastAccessed.toDate().toLocaleString("ja-JP") : "-";
 
-      return `
-        <tr style="border-bottom: 1px solid #E2E8F0;">
-          <td style="padding: 10px; font-weight: bold; color: #0F3875;">${student}</td>
-          <td style="padding: 10px;"><span style="font-weight: bold; color: #2563EB;">${clearedCount}</span> 単元</td>
-          <td style="padding: 10px;"><span style="font-weight: bold; color: #D97706;">${medalsCount}</span> / 4 個</td>
-          <td style="padding: 10px;"><span style="color: ${weakCount > 0 ? '#DC2626' : '#15803D'}; font-weight: bold;">${weakCount}</span> 問</td>
-          <td style="padding: 10px; color: #64748B; font-size: 0.8rem;">${lastDate}</td>
-        </tr>
-      `;
-    }).join("");
-  } catch (err) {
-    console.error("Summary load error:", err);
-    tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #DC2626;">サマリーの読み込みに失敗しました。</td></tr>`;
-  }
+    return `
+      <tr style="border-bottom: 1px solid #E2E8F0;">
+        <td style="padding: 10px; font-weight: bold; color: #0F3875;">${student}</td>
+        <td style="padding: 10px;"><span style="font-weight: bold; color: #2563EB;">${clearedCount}</span> 単元</td>
+        <td style="padding: 10px;"><span style="font-weight: bold; color: #D97706;">${medalsCount}</span> / 4 個</td>
+        <td style="padding: 10px;"><span style="color: ${weakCount > 0 ? '#DC2626' : '#15803D'}; font-weight: bold;">${weakCount}</span> 問</td>
+        <td style="padding: 10px; color: #64748B; font-size: 0.8rem;">${lastDate}</td>
+      </tr>
+    `;
+  }).join("");
+
+  return snap.size;
 }
 
+let socialRefreshInProgress = false;
+
 window.loadSocialQuestAdminData = async function() {
-  await Promise.all([loadSocialLogs(), loadSocialSummary()]);
+  if (socialRefreshInProgress) return;
+
+  const button = document.getElementById("social-refresh-btn");
+  const status = document.getElementById("social-refresh-status");
+  const originalButtonText = button?.textContent || "🔄 最新に更新";
+
+  socialRefreshInProgress = true;
+  if (button) {
+    button.disabled = true;
+    button.style.cursor = "wait";
+    button.style.opacity = "0.65";
+    button.textContent = "⏳ 更新中...";
+  }
+  if (status) {
+    status.textContent = "Firebaseの最新データを確認中...";
+    status.style.color = "#64748B";
+  }
+
+  try {
+    const results = await Promise.allSettled([
+      loadSocialLogs(),
+      loadSocialSummary()
+    ]);
+    const failedResults = results.filter(result => result.status === "rejected");
+
+    if (failedResults.length > 0) {
+      failedResults.forEach(result => console.error("Social Quest load error:", result.reason));
+      throw new Error("社会クエストの一部データを取得できませんでした。");
+    }
+
+    const [logsResult, summaryResult] = results;
+    const refreshedAt = new Date().toLocaleString("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    });
+
+    if (status) {
+      status.textContent = `✅ Firebaseサーバーから取得しました（${refreshedAt}／ログ${logsResult.value}件・進捗${summaryResult.value}名）`;
+      status.style.color = "#15803D";
+    }
+  } catch (err) {
+    console.error("Social Quest refresh error:", err);
+    if (status) {
+      status.textContent = "❌ 最新データを取得できませんでした。現在の表示を保持しています。";
+      status.style.color = "#DC2626";
+    }
+  } finally {
+    socialRefreshInProgress = false;
+    if (button) {
+      button.disabled = false;
+      button.style.cursor = "pointer";
+      button.style.opacity = "1";
+      button.textContent = originalButtonText;
+    }
+  }
 };
 
 // ★ 当月と前月を残して解答ログを一括削除（quest_progress は完全温存）
