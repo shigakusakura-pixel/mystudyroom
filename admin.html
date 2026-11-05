@@ -261,6 +261,14 @@
     doc,
     writeBatch
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import {
+    getFirestore as getFirestoreLite,
+    collection as liteCollection,
+    query as liteQuery,
+    orderBy as liteOrderBy,
+    limit as liteLimit,
+    getDocs as getLiteDocs
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-lite.js";
   import { getAuth, onAuthStateChanged, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
@@ -282,6 +290,10 @@
       timeoutSeconds: 25
     }
   });
+  // クエストの一覧取得は、SafariでWebChannel待ちが長引かない
+  // Firestore Lite（直接HTTPS通信）の専用インスタンスを使う。
+  const socialReadApp = initializeApp(firebaseConfig, "social-quest-read");
+  const socialReadDb = getFirestoreLite(socialReadApp);
   const storage = getStorage(app);
   const auth = getAuth(app);
   const pdfAuthPanel = document.getElementById('pdf-auth-panel');
@@ -317,6 +329,20 @@
       console.warn(`${label}の取得に失敗したため、1回だけ再試行します。`, error);
       await new Promise(resolve => setTimeout(resolve, 1500));
       return getDocsFromServer(source);
+    }
+  }
+
+  async function getSocialDocsWithRetry(source, label) {
+    try {
+      return await getLiteDocs(source);
+    } catch (error) {
+      if (!RETRYABLE_FIREBASE_READ_CODES.has(error?.code)) {
+        throw error;
+      }
+
+      console.warn(`${label}の取得に失敗したため、1回だけ再試行します。`, error);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      return getLiteDocs(source);
     }
   }
   // 初期化時のエラーは送信時にも処理します。
@@ -1441,8 +1467,12 @@ async function loadSocialLogs() {
   const tbody = document.getElementById("social-logs-tbody");
   if (!tbody) return 0;
 
-  const snap = await getDocsFromServerWithRetry(
-    collection(db, "quest_logs"),
+  const snap = await getSocialDocsWithRetry(
+    liteQuery(
+      liteCollection(socialReadDb, "quest_logs"),
+      liteOrderBy("timestamp", "desc"),
+      liteLimit(50)
+    ),
     "社会クエスト解答ログ"
   );
 
@@ -1451,14 +1481,7 @@ async function loadSocialLogs() {
     return 0;
   }
 
-  const records = snap.docs.map(dDoc => dDoc.data());
-  records.sort((a, b) => {
-    const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.timestamp ? new Date(a.timestamp).getTime() : 0);
-    const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : (b.timestamp ? new Date(b.timestamp).getTime() : 0);
-    return timeB - timeA;
-  });
-
-  const displayRecords = records.slice(0, 50);
+  const displayRecords = snap.docs.map(dDoc => dDoc.data());
 
   tbody.innerHTML = displayRecords.map(d => {
     let dateStr = "-";
@@ -1495,8 +1518,8 @@ async function loadSocialSummary() {
   const tbody = document.getElementById("social-summary-tbody");
   if (!tbody) return 0;
 
-  const snap = await getDocsFromServerWithRetry(
-    collection(db, "quest_progress"),
+  const snap = await getSocialDocsWithRetry(
+    liteCollection(socialReadDb, "quest_progress"),
     "社会クエスト進捗"
   );
 
@@ -1564,33 +1587,43 @@ window.loadSocialQuestAdminData = async function() {
     status.style.color = "#64748B";
   }
 
-  try {
-    const results = await Promise.allSettled([
-      loadSocialLogs(),
-      loadSocialSummary()
-    ]);
-    const failedResults = results.filter(result => result.status === "rejected");
+  let logsCount = null;
+  let summaryCount = null;
+  let logsError = null;
+  let summaryError = null;
 
-    if (failedResults.length > 0) {
-      if (results[0].status === "rejected") {
-        showInitialSocialLoadError(
-          "social-logs-tbody",
-          5,
-          "解答ログを取得できませんでした。「最新に更新」を押して再試行してください。"
-        );
-      }
-      if (results[1].status === "rejected") {
-        showInitialSocialLoadError(
-          "social-summary-tbody",
-          5,
-          "進捗データを取得できませんでした。「最新に更新」を押して再試行してください。"
-        );
-      }
-      failedResults.forEach(result => console.error("Social Quest load error:", result.reason));
-      throw new Error("社会クエストの一部データを取得できませんでした。");
+  try {
+    // Safariで複数のlong polling接続が競合しないよう、1件ずつ順番に取得する。
+    if (status) status.textContent = "解答ログを取得中...";
+    try {
+      logsCount = await loadSocialLogs();
+    } catch (error) {
+      logsError = error;
+      console.error("Social Quest logs load error:", error);
+      showInitialSocialLoadError(
+        "social-logs-tbody",
+        5,
+        "解答ログを取得できませんでした。「最新に更新」を押して再試行してください。"
+      );
     }
 
-    const [logsResult, summaryResult] = results;
+    if (status) {
+      status.textContent = logsError
+        ? "解答ログの取得に失敗しました。進捗データを確認中..."
+        : `解答ログ${logsCount}件を取得しました。進捗データを確認中...`;
+    }
+    try {
+      summaryCount = await loadSocialSummary();
+    } catch (error) {
+      summaryError = error;
+      console.error("Social Quest summary load error:", error);
+      showInitialSocialLoadError(
+        "social-summary-tbody",
+        5,
+        "進捗データを取得できませんでした。「最新に更新」を押して再試行してください。"
+      );
+    }
+
     const refreshedAt = new Date().toLocaleString("ja-JP", {
       timeZone: "Asia/Tokyo",
       month: "2-digit",
@@ -1601,16 +1634,22 @@ window.loadSocialQuestAdminData = async function() {
       hour12: false
     });
 
-    if (status) {
-      status.textContent = `✅ Firebaseサーバーから取得しました（${refreshedAt}／ログ${logsResult.value}件・進捗${summaryResult.value}名）`;
-      status.style.color = "#15803D";
-    }
-  } catch (err) {
-    console.error("Social Quest refresh error:", err);
-    if (status) {
+    if (!logsError && !summaryError) {
+      if (status) {
+        status.textContent = `✅ Firebaseサーバーから取得しました（${refreshedAt}／ログ${logsCount}件・進捗${summaryCount}名）`;
+        status.style.color = "#15803D";
+      }
+    } else if (!logsError || !summaryError) {
+      if (status) {
+        status.textContent = logsError
+          ? `⚠️ 進捗${summaryCount}名は更新しましたが、解答ログを取得できませんでした。現在のログ表示を保持しています。`
+          : `⚠️ 解答ログ${logsCount}件は更新しましたが、進捗データを取得できませんでした。現在の進捗表示を保持しています。`;
+        status.style.color = "#D97706";
+      }
+    } else if (status) {
       status.textContent = hadExistingData
-        ? "❌ 最新データを取得できませんでした。現在の表示を保持しています。"
-        : "❌ 最新データを取得できませんでした。通信状態を確認して再試行してください。";
+        ? "❌ 解答ログと進捗データを取得できませんでした。現在の表示を保持しています。"
+        : "❌ 解答ログと進捗データを取得できませんでした。通信状態を確認して再試行してください。";
       status.style.color = "#DC2626";
     }
   } finally {
