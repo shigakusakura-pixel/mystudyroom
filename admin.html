@@ -246,7 +246,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { 
-    initializeFirestore, 
+    getFirestore,
     collection, 
     query, 
     where, 
@@ -271,7 +271,7 @@
   };
 
   const app = initializeApp(firebaseConfig);
-  const db = initializeFirestore(app);
+  const db = getFirestore(app);
   const storage = getStorage(app);
   const auth = getAuth(app);
   const pdfAuthPanel = document.getElementById('pdf-auth-panel');
