@@ -473,7 +473,10 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
           subject: "授業動画", unit: "動画視聴", questionId: "視聴開始", action: "視聴",
           correct: 1, total: 1, timestamp: serverTimestamp()
         });
-      } catch (err) {}
+      } catch (err) {
+        console.error("学習履歴の保存失敗:", err);
+        alert("⚠️ 学習履歴を保存できませんでした。通信状態を確認し、後でもう一度開いてください。");
+      }
     }
   });
 </script>

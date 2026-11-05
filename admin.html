@@ -12,7 +12,12 @@
   .update-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #e8f0fb; padding: 12px 18px; border-radius: 8px; border: 1px solid #cce0ff; }
   .update-btn { background: #2963B1; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
   .update-btn:hover { background: #3572c0; }
+  .update-btn:disabled { background: #94a3b8; cursor: wait; }
   .cache-notice { font-size: 0.9em; color: #444; }
+  .data-source-status { display: inline-block; margin-top: 4px; font-size: 0.82em; font-weight: bold; color: #475569; }
+  .data-source-status.success { color: #15803d; }
+  .data-source-status.warning { color: #b45309; }
+  .data-source-status.error { color: #b91c1c; }
   .dashboard-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
   .learning-log-cleanup { display: flex; align-items: center; gap: 6px; background: #fee2e2; padding: 6px 8px; border-radius: 6px; border: 1px solid #fca5a5; }
   .learning-log-cleanup label { font-size: 0.8em; font-weight: bold; color: #991b1b; white-space: nowrap; }
@@ -75,8 +80,9 @@
   
   <div class="update-bar">
     <div class="cache-notice">
-      💡 <strong>通信量節約モード稼働中</strong>（Firebaseへの通信を抑えています）<br>
-      データ取得時刻: <strong id="last-update-time" style="color:#e74c3c;">未取得</strong>
+      💡 <strong>最新データ確認モード</strong>（保存データを先に表示し、Firebaseから自動更新します）<br>
+      データ取得時刻: <strong id="last-update-time" style="color:#e74c3c;">未取得</strong><br>
+      <span id="data-source-status" class="data-source-status" role="status">最新データを確認中...</span>
     </div>
     <div class="dashboard-actions">
       <div class="learning-log-cleanup">
@@ -245,6 +251,7 @@
     query, 
     where, 
     getDocs, 
+    getDocsFromServer,
     addDoc, 
     serverTimestamp, 
     deleteDoc, 
@@ -264,9 +271,7 @@
   };
 
   const app = initializeApp(firebaseConfig);
-  const db = initializeFirestore(app, {
-    experimentalForceLongPolling: true,
-  });
+  const db = initializeFirestore(app);
   const storage = getStorage(app);
   const auth = getAuth(app);
   const pdfAuthPanel = document.getElementById('pdf-auth-panel');
@@ -460,24 +465,20 @@
 async function initDashboard(forceUpdate = false) {
   document.getElementById('loading-view').style.display = 'block';
   document.getElementById('student-table').style.display = 'none';
+  const dataSourceStatus = document.getElementById('data-source-status');
 
   const cachedTime = localStorage.getItem('mystudy_cache_time');
   const cachedMap = localStorage.getItem('mystudy_student_map');
   const cachedRec = localStorage.getItem('mystudy_recent_records');
 
-  const nowMs = Date.now();
-  const CACHE_MINUTES = 30;
-  const expireMs = CACHE_MINUTES * 60 * 1000;
-
   // ========================================
-  // キャッシュを利用する場合
+  // 保存データを先に表示し、その後必ずサーバーを確認する
   // ========================================
   if (
     !forceUpdate &&
     cachedTime &&
     cachedMap &&
-    cachedRec &&
-    (nowMs - parseInt(cachedTime)) < expireMs
+    cachedRec
   ) {
     try {
       const oldStudentMap = JSON.parse(cachedMap);
@@ -531,8 +532,9 @@ async function initDashboard(forceUpdate = false) {
 
       document.getElementById('loading-view').style.display = 'none';
       document.getElementById('student-table').style.display = 'table';
-
-      return;
+      dataSourceStatus.textContent =
+        "保存データを表示中・Firebaseの最新データを確認中...";
+      dataSourceStatus.className = 'data-source-status warning';
 
     } catch (e) {
       console.warn("キャッシュ読み込み失敗。Firebaseから再取得します。", e);
@@ -546,6 +548,9 @@ async function initDashboard(forceUpdate = false) {
   document.getElementById('loading-view').textContent =
     "⏳ Firebaseから最新データを集計中...";
 
+  dataSourceStatus.textContent = "Firebaseの最新データを確認中...";
+  dataSourceStatus.className = 'data-source-status';
+
   await fetchFromFirebaseAndAggregate();
 }
 
@@ -555,6 +560,13 @@ async function initDashboard(forceUpdate = false) {
 // ==========================================
 
 async function fetchFromFirebaseAndAggregate() {
+  const updateButton = document.getElementById('force-update-btn');
+  const dataSourceStatus = document.getElementById('data-source-status');
+  const originalButtonText = updateButton.textContent;
+
+  updateButton.disabled = true;
+  updateButton.textContent = "⏳ 更新中...";
+
   try {
 
     const now = new Date();
@@ -571,7 +583,8 @@ async function fetchFromFirebaseAndAggregate() {
       where("timestamp", ">=", thirtyDaysAgo)
     );
 
-    const querySnapshot = await getDocs(q);
+    // 「最新」の場合はFirestore内部キャッシュに逃げず、サーバー取得を保証する
+    const querySnapshot = await getDocsFromServer(q);
 
 
     allRecentRecords = [];
@@ -813,6 +826,9 @@ async function fetchFromFirebaseAndAggregate() {
       'student-table'
     ).style.display = 'table';
 
+    dataSourceStatus.textContent = "✅ Firebaseサーバーから取得しました";
+    dataSourceStatus.className = 'data-source-status success';
+
 
   } catch (e) {
 
@@ -826,6 +842,19 @@ async function fetchFromFirebaseAndAggregate() {
     ).textContent =
       "❌ 読み込みエラーが発生しました。詳細: " +
       e.message;
+
+    dataSourceStatus.textContent =
+      "❌ Firebaseサーバーに接続できません。表示中のデータは最新でない可能性があります。";
+    dataSourceStatus.className = 'data-source-status error';
+
+    if (document.getElementById('student-table').style.display === 'table') {
+      document.getElementById('loading-view').style.display = 'none';
+    } else {
+      document.getElementById('loading-view').style.display = 'block';
+    }
+  } finally {
+    updateButton.disabled = false;
+    updateButton.textContent = originalButtonText;
   }
 }
 
@@ -1021,28 +1050,9 @@ document.getElementById(
 ).addEventListener(
   'click',
   async () => {
-
-    // ★ 古いキャッシュを完全削除
-    localStorage.removeItem(
-      'mystudy_cache_time'
-    );
-
-    localStorage.removeItem(
-      'mystudy_student_map'
-    );
-
-    localStorage.removeItem(
-      'mystudy_recent_records'
-    );
-
-
-    document.getElementById(
-      'last-update-time'
-    ).textContent =
-      '更新中...';
-
-
-    await initDashboard(true);
+    // 取得失敗時に最後の正常データを失わないよう、
+    // キャッシュは先に削除せずサーバー取得成功後に上書きする。
+    await fetchFromFirebaseAndAggregate();
 
   }
 );
