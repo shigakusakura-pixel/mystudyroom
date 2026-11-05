@@ -249,7 +249,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { 
-    getFirestore,
+    initializeFirestore,
     collection, 
     query, 
     where, 
@@ -274,7 +274,14 @@
   };
 
   const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+  // Safariや一部ルーターで通信が途中停止する場合に備え、
+  // WebChannelを長時間接続ではなくlong pollingで安定化する。
+  const db = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+    experimentalLongPollingOptions: {
+      timeoutSeconds: 25
+    }
+  });
   const storage = getStorage(app);
   const auth = getAuth(app);
   const pdfAuthPanel = document.getElementById('pdf-auth-panel');
@@ -289,6 +296,29 @@
       resolve(user);
     }, reject);
   });
+
+  const RETRYABLE_FIREBASE_READ_CODES = new Set([
+    'cancelled',
+    'deadline-exceeded',
+    'internal',
+    'resource-exhausted',
+    'unavailable',
+    'unknown'
+  ]);
+
+  async function getDocsFromServerWithRetry(source, label) {
+    try {
+      return await getDocsFromServer(source);
+    } catch (error) {
+      if (!RETRYABLE_FIREBASE_READ_CODES.has(error?.code)) {
+        throw error;
+      }
+
+      console.warn(`${label}の取得に失敗したため、1回だけ再試行します。`, error);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      return getDocsFromServer(source);
+    }
+  }
   // 初期化時のエラーは送信時にも処理します。
   authReady.catch(error => console.error('PDF送信の認証初期化エラー', error));
 
@@ -587,7 +617,7 @@ async function fetchFromFirebaseAndAggregate() {
     );
 
     // 「最新」の場合はFirestore内部キャッシュに逃げず、サーバー取得を保証する
-    const querySnapshot = await getDocsFromServer(q);
+    const querySnapshot = await getDocsFromServerWithRetry(q, "学習状況");
 
 
     allRecentRecords = [];
@@ -1382,7 +1412,7 @@ document.getElementById(
 // 初回起動
 // ==========================================
 
-initDashboard(false);
+const initialDashboardLoad = initDashboard(false);
 
 // ==========================================
 // 社会クエスト管理用データ取得・描画・削除機能
@@ -1411,7 +1441,10 @@ async function loadSocialLogs() {
   const tbody = document.getElementById("social-logs-tbody");
   if (!tbody) return 0;
 
-  const snap = await getDocsFromServer(collection(db, "quest_logs"));
+  const snap = await getDocsFromServerWithRetry(
+    collection(db, "quest_logs"),
+    "社会クエスト解答ログ"
+  );
 
   if (snap.empty) {
     tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #94A3B8;">該当する学習ログはありません。</td></tr>`;
@@ -1462,7 +1495,10 @@ async function loadSocialSummary() {
   const tbody = document.getElementById("social-summary-tbody");
   if (!tbody) return 0;
 
-  const snap = await getDocsFromServer(collection(db, "quest_progress"));
+  const snap = await getDocsFromServerWithRetry(
+    collection(db, "quest_progress"),
+    "社会クエスト進捗"
+  );
 
   if (snap.empty) {
     tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #94A3B8;">進行データがありません。</td></tr>`;
@@ -1498,12 +1534,23 @@ async function loadSocialSummary() {
 
 let socialRefreshInProgress = false;
 
+function showInitialSocialLoadError(tbodyId, columns, message) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody || !tbody.textContent.includes("読み込み中")) return;
+
+  tbody.innerHTML = `<tr><td colspan="${columns}" style="padding: 16px; text-align: center; color: #DC2626;">${message}</td></tr>`;
+}
+
 window.loadSocialQuestAdminData = async function() {
   if (socialRefreshInProgress) return;
 
   const button = document.getElementById("social-refresh-btn");
   const status = document.getElementById("social-refresh-status");
   const originalButtonText = button?.textContent || "🔄 最新に更新";
+  const hadExistingData = [
+    document.getElementById("social-logs-tbody"),
+    document.getElementById("social-summary-tbody")
+  ].some(tbody => tbody && !tbody.textContent.includes("読み込み中"));
 
   socialRefreshInProgress = true;
   if (button) {
@@ -1525,6 +1572,20 @@ window.loadSocialQuestAdminData = async function() {
     const failedResults = results.filter(result => result.status === "rejected");
 
     if (failedResults.length > 0) {
+      if (results[0].status === "rejected") {
+        showInitialSocialLoadError(
+          "social-logs-tbody",
+          5,
+          "解答ログを取得できませんでした。「最新に更新」を押して再試行してください。"
+        );
+      }
+      if (results[1].status === "rejected") {
+        showInitialSocialLoadError(
+          "social-summary-tbody",
+          5,
+          "進捗データを取得できませんでした。「最新に更新」を押して再試行してください。"
+        );
+      }
       failedResults.forEach(result => console.error("Social Quest load error:", result.reason));
       throw new Error("社会クエストの一部データを取得できませんでした。");
     }
@@ -1547,7 +1608,9 @@ window.loadSocialQuestAdminData = async function() {
   } catch (err) {
     console.error("Social Quest refresh error:", err);
     if (status) {
-      status.textContent = "❌ 最新データを取得できませんでした。現在の表示を保持しています。";
+      status.textContent = hadExistingData
+        ? "❌ 最新データを取得できませんでした。現在の表示を保持しています。"
+        : "❌ 最新データを取得できませんでした。通信状態を確認して再試行してください。";
       status.style.color = "#DC2626";
     }
   } finally {
@@ -1604,7 +1667,13 @@ window.switchSocialTab = function(tab) {
   }
 };
 
-window.loadSocialQuestAdminData();
+initialDashboardLoad.then(
+  () => window.loadSocialQuestAdminData(),
+  error => {
+    console.error("Initial dashboard load error:", error);
+    return window.loadSocialQuestAdminData();
+  }
+);
 
 setInterval(() => {
   window.loadSocialQuestAdminData();
