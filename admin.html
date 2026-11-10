@@ -239,6 +239,8 @@
       <span id="msg-send-status" style="margin-left: 10px; font-size: 0.85em; color: #e74c3c;"></span>
       
       <h4 style="margin: 25px 0 10px 0; font-size: 0.95em; color: #1a2e4a; border-top: 1px dashed #ccc; padding-top: 15px;">🗑️ 送信済みメッセージの管理</h4>
+      <p style="font-size:0.8em; color:#555; margin:6px 0;">削除すると、送信メッセージと添付PDFを削除します。学年・全員宛ての場合は、受信した全員に反映されます。</p>
+      <div id="msg-delete-status" role="status" aria-live="polite" style="font-size:0.85em; margin:8px 0;"></div>
       <div id="sent-messages-list" style="font-size: 0.85em; max-height: 150px; overflow-y: auto; background: #fff; border: 1px solid #ccc; padding: 10px; border-radius: 4px;">
         <div style="color:#888;">読み込み中...</div>
       </div>
@@ -270,7 +272,8 @@
     getDocs as getLiteDocs
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-lite.js";
   import { getAuth, onAuthStateChanged, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-  import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+  import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject, getMetadata } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+  import { deleteMessageWithPdf } from "./message-deletion.js?v=20261110";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBQjnlOfeVvWQJHDxGE9cq-jGsYF3uo0PY",
@@ -427,6 +430,7 @@
 
   let currentModalStudentId = ""; 
   let allRecentRecords = []; 
+  let messageDeletionInProgress = false;
 
   async function uploadPdfToStorage(file) {
     const fileName = `${Date.now()}_${file.name}`;
@@ -485,28 +489,81 @@
         const div = document.createElement('div');
         div.style.cssText = "display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding:5px 0;";
         
-        div.innerHTML = `
-          <div style="flex:1; padding-right:10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-            <span style="color:#555;">${dateStr}</span> 
-            <strong style="color:${msgColor}; margin-left:5px;">${msg.message || '添付ファイルのみ'}</strong>
-          </div>
-          <button class="delete-msg-btn" data-id="${msg.id}" data-url="${msg.pdfUrl || ''}" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.9em;">削除</button>
-        `;
+        const summary = document.createElement('div');
+        summary.style.cssText = 'flex:1; min-width:0; padding-right:10px;';
+        const date = document.createElement('span');
+        date.style.color = '#555';
+        date.textContent = dateStr + ' ';
+        const text = document.createElement('strong');
+        text.style.color = msgColor;
+        text.textContent = msg.message || '添付ファイルのみ';
+        summary.append(date, text);
+        let pdfName = '';
+        if (msg.pdfUrl) {
+          try { pdfName = ref(storage, msg.pdfUrl).name.replace(/^\d+_/, ''); }
+          catch { pdfName = '添付PDF'; }
+          const file = document.createElement('div');
+          file.style.cssText = 'font-size:0.9em; color:#555; overflow-wrap:anywhere; margin-top:3px;';
+          file.textContent = '📄 ' + pdfName;
+          summary.appendChild(file);
+        }
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'delete-msg-btn';
+        btn.style.cssText = 'background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.9em; flex-shrink:0;';
+        btn.textContent = '削除';
+        btn.disabled = messageDeletionInProgress;
+        div.append(summary, btn);
         listContainer.appendChild(div);
-      });
 
-      document.querySelectorAll('.delete-msg-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const docId = e.target.getAttribute('data-id');
-          const pdfUrl = e.target.getAttribute('data-url');
-          if(confirm("このデータを削除しますか？")) {
-            try {
-              if(pdfUrl) {
-                try { await deleteObject(ref(storage, pdfUrl)); } catch(err) { console.warn("ファイル削除エラー", err); }
-              }
-              await deleteDoc(doc(db, "teacher_messages", docId));
-              loadSentMessages(studentId);
-            } catch(err) { alert("削除失敗: " + err.message); }
+        btn.addEventListener('click', async () => {
+          if (messageDeletionInProgress) return;
+          const target = msg.target || msg.studentId;
+          const targetName = ({ all:'生徒全員', grade_1:'中学1年生全員', grade_2:'中学2年生全員', grade_3:'中学3年生全員' })[target]
+            || STUDENT_RECORDS[target]?.name || 'この生徒';
+          const details = `対象：${targetName}\n送信日時：${dateStr}\n` + (pdfName ? `PDF：${pdfName}\n` : '');
+          if (!confirm(details + '\n送信メッセージ' + (msg.pdfUrl ? 'と添付PDF' : '') + 'を削除しますか？\n端末にダウンロード済みのPDFは残ります。')) return;
+          messageDeletionInProgress = true;
+          document.querySelectorAll('.delete-msg-btn').forEach(button => { button.disabled = true; });
+          btn.textContent = '削除中…';
+          const status = document.getElementById('msg-delete-status');
+          status.style.color = '#333';
+          status.textContent = msg.pdfUrl ? '添付PDFを削除し、保存先から消えたことを確認しています…' : '送信メッセージを削除しています…';
+          try {
+            const result = await deleteMessageWithPdf(msg, {
+              requirePdfAuth: async () => {
+                await authReady;
+                if (!auth.currentUser) {
+                  const error = new Error('PDF送信用の講師アカウントでログインしてください。');
+                  error.code = 'storage/unauthenticated';
+                  throw error;
+                }
+              },
+              deletePdf: url => deleteObject(ref(storage, url)),
+              getPdfMetadata: url => getMetadata(ref(storage, url)),
+              deleteMessage: id => deleteDoc(doc(db, 'teacher_messages', id))
+            });
+            status.style.color = '#15803d';
+            status.textContent = result.pdfDeleted
+              ? '✅ 添付PDFが配信先に残っていないことを確認し、送信メッセージも削除しました。'
+              : '✅ 送信メッセージを削除しました。';
+            messageDeletionInProgress = false;
+            await loadSentMessages(currentModalStudentId);
+          } catch (error) {
+            console.error('送信済みデータの削除失敗', error);
+            status.style.color = '#b91c1c';
+            const detail = error.code === 'storage/unauthorized'
+              ? 'PDFを削除する権限がありません。講師のログイン状態と保存先の権限を確認してください。'
+              : error.message;
+            status.textContent = !msg.pdfUrl
+              ? `❌ 送信メッセージを削除できませんでした。再度「削除」を押してください。（${error.code}）`
+              : error.pdfDeleted
+              ? `❌ PDFは削除済みですが、送信メッセージを削除できませんでした。再度「削除」を押してください。（${error.code}）`
+              : `❌ PDFの削除または削除確認を完了できませんでした。送信メッセージは残しています。${detail}（${error.code}）`;
+          } finally {
+            messageDeletionInProgress = false;
+            document.querySelectorAll('.delete-msg-btn').forEach(button => { button.disabled = false; });
+            btn.textContent = '削除';
           }
         });
       });
