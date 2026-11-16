@@ -153,7 +153,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 <div class="card-grid">
   <div class="section">
     <div class="section-label">Online learning — 解説動画</div>
-    <a class="card" href="https://shigaku-mystudy.com/index.php" target="_self">
+    <a id="learning-video-link" class="card" href="https://shigaku-mystudy.com/index.php" target="_blank" rel="opener">
       <div class="card-icon">🎞️</div>
       <div class="card-body">
         <div class="card-title">学習解説動画</div>
@@ -267,7 +267,10 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
   import { 
     getFirestore, 
     collection, 
-    getDocs
+    getDocs,
+    doc,
+    setDoc,
+    Timestamp
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -455,6 +458,87 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     }
   });
 
-  // 動画サイトへの移動だけでは学習履歴を登録しない。
-  // 視聴履歴は動画再生ページで実際の再生を確認してから記録する。
+  // 動画サイトが保存を確認した視聴記録だけをポータルへ反映する。
+  const videoOrigin = 'https://shigaku-mystudy.com';
+  const videoWindows = new Map();
+  const videoLink = document.getElementById('learning-video-link');
+  function videoBridgeNonce() {
+    const bytes = new Uint8Array(24);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  }
+  if (videoLink) {
+    videoLink.addEventListener('click', event => {
+      if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      const user = auth.currentUser;
+      if (!user || !user.email) return;
+      const child = window.open(videoLink.href, '_blank');
+      if (!child) return; // 開けなかった場合は通常のリンク操作を継続する。
+      event.preventDefault();
+      videoWindows.set(child, {
+        uid: user.uid,
+        studentId: user.email.trim().toLowerCase(),
+        nonce: videoBridgeNonce(),
+        pageId: '',
+        pending: new Map(),
+        saved: new Set()
+      });
+    });
+  }
+  window.addEventListener('message', async event => {
+    if (event.origin !== videoOrigin || !event.source || !event.data || typeof event.data !== 'object') return;
+    const session = videoWindows.get(event.source);
+    const user = auth.currentUser;
+    if (!session || !user || user.uid !== session.uid || !user.email || user.email.trim().toLowerCase() !== session.studentId) return;
+    const message = event.data;
+    if (message.type === 'shigaku:video-ready:v1') {
+      if (typeof message.pageId !== 'string' || !/^[a-f0-9]{48}$/.test(message.pageId)) return;
+      session.pageId = message.pageId;
+      event.source.postMessage({type:'shigaku:video-session:v1', pageId:session.pageId, nonce:session.nonce}, videoOrigin);
+      return;
+    }
+    if (message.type !== 'shigaku:video-record:v1' || message.nonce !== session.nonce || message.pageId !== session.pageId) return;
+    const record = message.record;
+    if (!record || typeof record !== 'object' || typeof record.viewId !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(record.viewId) ||
+        typeof record.fileNo !== 'string' || !/^\d{1,30}$/.test(record.fileNo) ||
+        typeof record.title !== 'string' || !record.title || record.title.length > 500 ||
+        !Number.isFinite(record.watchedSeconds) || record.watchedSeconds < 30 ||
+        typeof record.watchedAt !== 'string') return;
+    const watchedDate = new Date(record.watchedAt);
+    if (Number.isNaN(watchedDate.getTime()) || watchedDate.getTime() > Date.now() + 5 * 60 * 1000) return;
+    const reply = ok => event.source.postMessage({type:'shigaku:video-ack:v1', pageId:message.pageId, nonce:session.nonce, viewId:record.viewId, ok}, videoOrigin);
+    if (session.saved.has(record.viewId)) { reply(true); return; }
+    if (session.pending.has(record.viewId)) {
+      try { await session.pending.get(record.viewId); reply(true); } catch (ignore) { reply(false); }
+      return;
+    }
+    const subject = ['英語','数学','理科','社会','国語','算数'].find(s => typeof record.subject === 'string' && record.subject.includes(s)) || '授業動画';
+    // MySQLの視聴レコードIDを使い、再送時も同じ文書へ保存する。
+    const save = setDoc(doc(db, 'learning_records', 'video_' + session.uid + '_' + record.viewId), {
+      uid: session.uid,
+      studentId: session.studentId,
+      subject,
+      unit: '【動画】' + record.title + '（30秒以上視聴）',
+      questionId: record.fileNo,
+      action: '視聴',
+      correct: 0,
+      total: 0,
+      duration: record.watchedSeconds,
+      timestamp: Timestamp.fromDate(watchedDate),
+      source: 'shigaku-mystudy-video',
+      videoViewId: record.viewId
+    });
+    session.pending.set(record.viewId, save);
+    try {
+      await save;
+      session.saved.add(record.viewId);
+      reply(true);
+    } catch (error) {
+      console.error('動画視聴のポータル反映に失敗しました:', error.code || 'unknown');
+      reply(false);
+    } finally {
+      session.pending.delete(record.viewId);
+    }
+  });
+
 </script>
