@@ -97,23 +97,32 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 
 .print-request { margin: -20px 0 28px; border: 1px solid #cedced; border-radius: 14px; background: #fff; color: #1a2e4a; }
 .print-request summary { padding: 15px 16px; cursor: pointer; font-weight: 700; }
-.print-request form { padding: 0 16px 16px; display: grid; gap: 12px; }
+.print-request form:not([hidden]) { padding: 0 16px 16px; display: grid; gap: 12px; }
 .print-request fieldset { min-width: 0; border: 0; }
 .print-request legend, .print-request label[for] { font-weight: 700; }
 .print-subjects { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; margin-top: 6px; }
 .print-subjects label { position: relative; cursor: pointer; }
 .print-subjects input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.print-subjects span, #print-request-send { display: grid; min-height: 44px; place-items: center; border: 1px solid #cedced; border-radius: 8px; font: inherit; font-weight: 700; }
+.print-subjects span, .print-request button { display: grid; min-height: 44px; place-items: center; border: 1px solid #cedced; border-radius: 8px; font: inherit; font-weight: 700; }
 .print-subjects span { background: #eff5fc; }
-.print-subjects input:checked + span, #print-request-send { color: #fff; background: #2963b1; border-color: #2963b1; }
+.print-subjects input:checked + span, #print-request-confirm, #print-request-send { color: #fff; background: #2963b1; border-color: #2963b1; }
 .print-subjects input:checked + span::after { content: '✓'; position: absolute; top: 0; right: 3px; font-size: .7em; }
 .print-subjects input:focus-visible + span { outline: 2px solid #1a2e4a; outline-offset: 2px; }
 .print-request textarea { display: block; width: 100%; margin-top: 6px; padding: 10px; min-height: 88px; resize: vertical; color: #1a2e4a; font: inherit; border: 1px solid #aebfd3; border-radius: 8px; }
 .print-request textarea::placeholder, #print-request-help { color: #52637a; }
 .print-request p { font-size: .9rem; line-height: 1.65; }
 .print-request strong { color: #8a5a14; }
-#print-request-send { padding: 6px 12px; cursor: pointer; }
-#print-request-send:disabled { opacity: .65; cursor: wait; }
+.print-request button { padding: 6px 12px; cursor: pointer; }
+.print-request button:disabled { opacity: .65; cursor: wait; }
+.print-request-review { margin: 0 16px 16px; padding: 14px; border: 1px solid #cedced; border-radius: 10px; background: #eff5fc; }
+.print-request-review h3 { font-size: 1rem; }
+.print-request-review dl { display: grid; gap: 8px; margin: 12px 0 16px; }
+.print-request-review dt { font-size: .875rem; font-weight: 700; color: #52637a; }
+.print-request-review dd { white-space: pre-wrap; overflow-wrap: anywhere; }
+.print-request-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.print-request-actions button { flex: 1 1 auto; }
+#print-request-edit { color: #1a2e4a; background: #fff; }
+#print-request-status { margin: 0 16px 16px; }
 #print-request-status:empty { display: none; }
 
 /* 高さ自動調整が効いたカードグリッド */
@@ -191,9 +200,20 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
           <textarea id="print-request-detail" name="detail" maxlength="300" rows="3" required aria-describedby="print-request-help" placeholder="例：ワーク42ページの③に似た問題を５問くらい"></textarea>
         </div>
         <p>受付から <strong>２日以内</strong> に、プリントをお届けします！<br>届いたPDFは「先生からのお知らせ」から開けます。</p>
-        <button id="print-request-send" type="submit">先生にリクプリを送る</button>
-        <p id="print-request-status" role="status"></p>
+        <button id="print-request-confirm" type="submit">入力内容を確認</button>
       </form>
+      <section class="print-request-review" id="print-request-review" aria-labelledby="print-request-review-title" hidden>
+        <h3 id="print-request-review-title" tabindex="-1">リクプリの送信内容を確認</h3>
+        <dl>
+          <div><dt>教科</dt><dd id="print-request-review-subject"></dd></div>
+          <div><dt>単元・ほしいプリントの内容</dt><dd id="print-request-review-detail"></dd></div>
+        </dl>
+        <div class="print-request-actions">
+          <button id="print-request-edit" type="button">戻って修正</button>
+          <button id="print-request-send" type="button">この内容で先生に送る</button>
+        </div>
+      </section>
+      <p id="print-request-status" role="status"></p>
     </details>
 <div class="card-grid">
   <div class="section">
@@ -350,7 +370,13 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
   const requestForm = document.getElementById('print-request-form');
   const requestDetail = document.getElementById('print-request-detail');
   const requestStatus = document.getElementById('print-request-status');
+  const requestReview = document.getElementById('print-request-review');
+  const requestReviewTitle = document.getElementById('print-request-review-title');
+  const requestReviewSubject = document.getElementById('print-request-review-subject');
+  const requestReviewDetail = document.getElementById('print-request-review-detail');
+  const requestEdit = document.getElementById('print-request-edit');
   const requestSend = document.getElementById('print-request-send');
+  let requestDraft = null;
   const requestExamples = {
     英: '現在完了の「経験」と「継続」を見分ける問題',
     数: '放物線と直線の交点を求める基本問題を５問くらい',
@@ -427,39 +453,68 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     }
   });
 
-  requestForm.addEventListener('submit', async event => {
+  function showRequestEditor() {
+    requestDraft = null;
+    requestReviewSubject.textContent = '';
+    requestReviewDetail.textContent = '';
+    requestReview.hidden = true;
+    requestForm.hidden = false;
+  }
+
+  requestForm.addEventListener('submit', event => {
     event.preventDefault();
-    if (requestSend.disabled || requestPanel.hidden) return;
+    if (requestForm.hidden || requestPanel.hidden || !requestPanel.open) return;
     const user = auth.currentUser;
-    const subject = new FormData(requestForm).get('subject');
+    const subjectInput = requestForm.querySelector('input[name="subject"]:checked');
+    const subject = subjectInput?.value;
     const detail = requestDetail.value.trim();
     if (!user?.email || !Object.hasOwn(requestExamples, subject) || !detail) {
       requestStatus.textContent = '教科を選び、ほしいプリントの内容を書いてください。';
       return;
     }
 
+    requestDraft = { studentUid: user.uid, studentId: user.email, subject, detail };
+    requestReviewSubject.textContent = subjectInput.getAttribute('aria-label');
+    requestReviewDetail.textContent = detail;
+    requestStatus.textContent = '';
+    requestForm.hidden = true;
+    requestReview.hidden = false;
+    requestReviewTitle.focus();
+  });
+
+  requestEdit.addEventListener('click', () => {
+    showRequestEditor();
+    requestStatus.textContent = '';
+    requestDetail.focus();
+  });
+
+  requestSend.addEventListener('click', async () => {
+    const draft = requestDraft;
+    if (!draft || requestSend.disabled || requestPanel.hidden || !requestPanel.open
+      || auth.currentUser?.uid !== draft.studentUid) return;
+
     requestSend.disabled = true;
+    requestEdit.disabled = true;
     requestStatus.textContent = '先生に送っています…';
     try {
       await addDoc(collection(db, 'print_requests'), {
-        studentUid: user.uid,
-        studentId: user.email,
-        subject,
-        detail,
+        ...draft,
         status: 'pending',
         createdAt: serverTimestamp()
       });
-      if (auth.currentUser?.uid !== user.uid) return;
+      if (requestDraft !== draft || auth.currentUser?.uid !== draft.studentUid) return;
       requestForm.reset();
       requestDetail.placeholder = defaultRequestExample;
+      showRequestEditor();
       requestStatus.textContent = '先生にリクプリを送りました。２日以内にプリントをお届けします。';
     } catch (error) {
       console.error('リクプリの送信エラー', error);
-      if (auth.currentUser?.uid === user.uid) {
+      if (requestDraft === draft && auth.currentUser?.uid === draft.studentUid) {
         requestStatus.textContent = '送信できませんでした。入力した内容を確認して、もう一度お試しください。';
       }
     } finally {
       requestSend.disabled = false;
+      requestEdit.disabled = false;
     }
   });
 
@@ -593,6 +648,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     requestPanel.open = false;
     requestForm.reset();
     requestDetail.placeholder = defaultRequestExample;
+    showRequestEditor();
     requestStatus.textContent = '';
     watchPrintDeliveries(user);
     
