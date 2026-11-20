@@ -302,6 +302,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 </div>
 
 <script type="module">
+  import { STUDENT_RECORDS } from "./student-roster.js";
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { 
     getAuth, 
@@ -338,34 +339,8 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
   const db = getFirestore(app);
   const storage = getStorage(app);
 
-  const STUDENT_NAMES = {
-    "student001@shigaku.local": "後田 莉乃葉",
-    "tuji@shigaku.local": "辻 結香",
-    "student003@shigaku.local": "辻 沙香",
-    "student004@shigaku.local": "二ノ宮 愛彩",
-    "student005@shigaku.local": "丸目 妃織",
-    "student006@shigaku.local": "久保 善光",
-    "student007@shigaku.local": "新留 らな",
-    "student008@shigaku.local": "溝口 ゆうか",
-    "student009@shigaku.local": "川原 美桜",
-    "student010@shigaku.local": "藤中 敬斗",
-    "yoshi@shigaku.local": "吉元 碧唯",
-    "student012@shigaku.local": "中 凜華",
-    "student013@shigaku.local": "古川 桜汰",
-    "student014@shigaku.local": "橋元 湧",
-    "student015@shigaku.local": "福薗 賢人",
-    "student016@shigaku.local": "宮崎 玲歩",
-    "student017@shigaku.local": "鮫島 蒼侑",
-    "student018@shigaku.local": "長倉 良介",
-    "student019@shigaku.local": "岡元 夢歩",
-    "student020@shigaku.local": "川路 美衣奈",
-    "student021@shigaku.local": "川上 ひかり",
-    "student022@shigaku.local": "佐伯 美咲",
-    "student023@shigaku.local": "今別府 瑚子",
-    "student024@shigaku.local": "佐藤 愛菜",
-    "teacher@shigaku.local": "日野 妙三",
-    "sky@shigaku.local": "Sky",
-    "guest": "ゲストユーザー"
+  const LEGACY_STUDENT_NAMES = {
+    "student012@shigaku.local": "中 凜華"
   };
 
   let currentStudentId = "";
@@ -549,7 +524,8 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     const msgArea = document.getElementById('personal-message-area') || document.getElementById('message-area');
     if (!msgArea) return;
 
-    const displayName = STUDENT_NAMES[studentEmail] || studentEmail.split('@')[0];
+    const student = STUDENT_RECORDS[studentEmail];
+    const displayName = student?.name || LEGACY_STUDENT_NAMES[studentEmail] || studentEmail.split('@')[0];
     const colorMap = {
       navy: "#004098",
       black: "#222222",
@@ -562,7 +538,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
       snap.forEach(d => {
         const data = d.data();
         const target = data.target || data.studentId;
-        if (target === studentEmail || target === "all") {
+        if (target === studentEmail || target === "all" || (student?.grade && target === student.grade)) {
           msgs.push(data);
         }
       });

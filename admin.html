@@ -286,6 +286,7 @@
 </div>
 
 <script type="module">
+  import { STUDENT_RECORDS } from "./student-roster.js";
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { 
     initializeFirestore,
@@ -431,34 +432,6 @@
     return `❌ ${stage}に失敗しました。${messages[code] || '接続やFirebaseの設定を確認してください。'}（${code}）`;
   }
 
-  const STUDENT_RECORDS = {
-    "student001@shigaku.local": { name: "後田 莉乃葉", grade: "grade_2" },
-    "tuji@shigaku.local": { name: "辻 結香", grade: "grade_1" },
-    "student003@shigaku.local": { name: "辻 沙香", grade: "grade_3" },
-    "student004@shigaku.local": { name: "二ノ宮 愛彩", grade: "grade_3" },
-    "student005@shigaku.local": { name: "丸目 妃織", grade: "grade_3" },
-    "student006@shigaku.local": { name: "久保 善光", grade: "grade_3" },
-    "student007@shigaku.local": { name: "新留 らな", grade: "grade_3" },
-    "student008@shigaku.local": { name: "溝口 ゆうか", grade: "grade_3" },
-    "student009@shigaku.local": { name: "川原 美桜", grade: "grade_3" },
-    "student010@shigaku.local": { name: "藤中 敬斗", grade: "grade_3" },
-    "yoshi@shigaku.local": { name: "吉元 碧唯", grade: "grade_3" },
-    "student013@shigaku.local": { name: "古川 桜汰", grade: "grade_3" },
-    "student014@shigaku.local": { name: "橋元 湧", grade: "grade_3" },
-    "student015@shigaku.local": { name: "福薗 賢人", grade: "grade_3" },
-    "student016@shigaku.local": { name: "宮崎 玲歩", grade: "grade_3" },
-    "student017@shigaku.local": { name: "鮫島 蒼侑", grade: "grade_3" },
-    "student018@shigaku.local": { name: "長倉 良介", grade: "grade_3" },
-    "student019@shigaku.local": { name: "岡元 夢歩", grade: "grade_3" },
-    "student020@shigaku.local": { name: "川路 美衣奈", grade: "grade_3" },
-    "student021@shigaku.local": { name: "川上 ひかり", grade: "grade_1" },
-    "student022@shigaku.local": { name: "佐伯 美咲", grade: "grade_1" },
-    "student023@shigaku.local": { name: "今別府 瑚子", grade: "grade_3" },
-    "student024@shigaku.local": { name: "佐藤 愛菜", grade: "grade_3" },
-    "teacher@shigaku.local": { name: "日野 妙三", grade: "all" },
-    "sky@shigaku.local": { name: "Sky", grade: "all" },
-    "guest": { name: "ゲストユーザー", grade: "all" }
-  };
   const REGISTERED_STUDENTS = Object.keys(STUDENT_RECORDS);
 
   function normalizeStudentId(value) {
