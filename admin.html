@@ -71,6 +71,18 @@
     .dashboard-actions { width: 100%; justify-content: flex-start; }
     .learning-log-cleanup { flex-wrap: wrap; }
   }
+  .print-requests-box { margin: 16px 0; padding: 14px; background: #f0f5fc; color: #1a2e4a; border: 1px solid #cedced; border-radius: 10px; }
+  .print-requests-box h4 { margin: 0 0 8px; }
+  .print-requests-box summary { font-weight: bold; cursor: pointer; }
+  .print-requests-box form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+  .print-requests-box form[hidden] { display: none; }
+  .print-requests-box :is(input, button) { font: inherit; }
+  .print-requests-box button, #print-reply-context button { padding: 5px 9px; color: #1a2e4a; background: #fff; border: 1px solid #9db4d2; border-radius: 5px; cursor: pointer; }
+  .print-requests-box .withdraw-print { color: #9b1b1b; border-color: #dba1a1; }
+  .print-request-row { padding: 9px 0; border-bottom: 1px solid #cedced; overflow-wrap: anywhere; }
+  .print-request-row:last-child { border-bottom: 0; }
+  .print-request-row p { margin: 5px 0; white-space: pre-wrap; }
+  #print-reply-context { margin: 8px 0; color: #1a2e4a; }
 </style>
 </head>
 <body>
@@ -94,6 +106,25 @@
     </div>
   </div>
   
+  <details id="print-inbox" class="print-requests-box">
+    <summary>リクプリ <span id="print-request-count"></span></summary>
+    <p id="print-inbox-status" role="status">講師ログインを確認中…</p>
+    <form id="print-inbox-login" hidden>
+      <label>PDF送信用のID <input name="login" autocomplete="username" required></label>
+      <label>パスワード <input type="password" name="password" autocomplete="current-password" required></label>
+      <button type="submit">ログイン</button>
+    </form>
+    <div id="print-inbox-list"></div>
+    <form id="print-batch-form" hidden>
+      <label>チェックした依頼の共通PDF <input type="file" id="print-batch-file" accept="application/pdf,.pdf"></label>
+      <button type="submit" id="print-batch-send">割り当てたPDFをまとめて送る</button>
+    </form>
+    <p id="print-batch-status" role="status"></p>
+    <details id="print-inbox-sent" hidden>
+      <summary>送付済みのリクプリ</summary>
+      <div id="print-inbox-sent-list"></div>
+    </details>
+  </details>
   <p style="font-size: 0.9em; color: #666;">※生徒の行をクリックすると、個人の詳細カルテが表示されます。</p>
   
   <div id="loading-view" class="loading">⏳ データを集計中...</div>
@@ -197,8 +228,14 @@
     <div id="modal-history-loading" style="font-size: 0.8em; color: #888; display: none;">履歴を読み込み中...</div>
     <div class="recent-logs"><ul id="modal-recent-list"></ul></div>
 
+    <section id="student-print-requests" class="print-requests-box" hidden>
+      <h4>この生徒からのリクプリ</h4>
+      <div id="student-print-request-list"></div>
+      <p id="print-action-status" role="status"></p>
+    </section>
     <div class="message-box">
       <h4 style="margin: 0 0 10px 0; font-size: 1em; color: #1a2e4a;">💬 メッセージ・プリントを送る</h4>
+      <div id="print-reply-context" hidden><strong id="print-reply-label"></strong> <button id="cancel-print-reply" type="button">リクプリへの返信を解除</button></div>
       
       <div style="margin-bottom: 10px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
         <div>
@@ -261,7 +298,11 @@
     serverTimestamp, 
     deleteDoc, 
     doc,
-    writeBatch
+    writeBatch,
+    onSnapshot,
+    runTransaction,
+    deleteField,
+    getDocFromServer
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
   import {
     getFirestore as getFirestoreLite,
@@ -432,6 +473,377 @@
   let currentModalStudentId = ""; 
   let allRecentRecords = []; 
   let messageDeletionInProgress = false;
+  const dashboardStudents = new Map();
+  const printRequests = new Map();
+  const selectedPrintRequests = new Set();
+  const individualPrintFiles = new Map();
+  const printInboxStatus = document.getElementById('print-inbox-status');
+  const printInboxLogin = document.getElementById('print-inbox-login');
+  const printBatchForm = document.getElementById('print-batch-form');
+  const printBatchSend = document.getElementById('print-batch-send');
+  const printBatchStatus = document.getElementById('print-batch-status');
+  const printBatchFile = document.getElementById('print-batch-file');
+  const printTarget = document.getElementById('msg-target-type');
+  const printSendButton = document.getElementById('send-msg-btn');
+  let authorizedPrintUid;
+  const canManagePrintRequests = () => Boolean(authorizedPrintUid && auth.currentUser?.uid === authorizedPrintUid);
+  let activePrintReply = null;
+  let printOperationInProgress = false;
+  let stopPrintInbox;
+
+  function selectPrintReply(request) {
+    activePrintReply = request;
+    document.getElementById('print-reply-context').hidden = !request;
+    document.getElementById('print-reply-label').textContent = request ? `リクプリ（${request.subject}）への返信・個人宛て` : '';
+    printTarget.disabled = Boolean(request);
+    if (request) printTarget.value = 'individual';
+    printSendButton.textContent = request ? 'この依頼にPDFを送る' : '送信する';
+  }
+
+  document.getElementById('cancel-print-reply').addEventListener('click', () => selectPrintReply(null));
+
+  function printRequestRow(request) {
+    const row = document.createElement('div');
+    row.className = 'print-request-row';
+    const heading = document.createElement('strong');
+    const name = STUDENT_RECORDS[normalizeStudentId(request.studentId)]?.name || request.studentId;
+    const date = request.createdAt?.toDate().toLocaleString('ja-JP', {
+      timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    }) || '日時確認中';
+    heading.textContent = `${date}　${name}　${request.subject}　${request.status === 'sent' ? '送付済み' : '未対応'}`;
+    const detail = document.createElement('p');
+    detail.textContent = request.detail;
+    row.append(heading, detail);
+    return row;
+  }
+
+  function updatePrintBatchButton() {
+    printBatchSend.disabled = printOperationInProgress
+      || !(individualPrintFiles.size || (selectedPrintRequests.size && printBatchFile.files.length));
+  }
+
+  printBatchFile.addEventListener('change', updatePrintBatchButton);
+
+  function renderPrintInbox() {
+    const list = document.getElementById('print-inbox-list');
+    const sentPanel = document.getElementById('print-inbox-sent');
+    const sentList = document.getElementById('print-inbox-sent-list');
+    list.replaceChildren();
+    sentList.replaceChildren();
+    const pending = [...printRequests.values()].filter(request => request.status === 'pending');
+    const sent = [...printRequests.values()].filter(request => request.status === 'sent').reverse();
+    sentPanel.hidden = sent.length === 0;
+    document.getElementById('print-request-count').textContent = canManagePrintRequests()
+      ? `未対応 ${pending.length}件` : '';
+    for (const request of [...pending, ...sent]) {
+      const row = printRequestRow(request);
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.textContent = '個人カルテを開く';
+      open.addEventListener('click', () => {
+        const id = normalizeStudentId(request.studentId);
+        const student = dashboardStudents.get(id) || { id, count7: 0, count30: 0, subjects: {} };
+        openStudentModal(student, STUDENT_RECORDS[id]?.name || id);
+        document.getElementById('student-print-requests').scrollIntoView({ block: 'nearest' });
+      });
+      if (request.status === 'sent') {
+        row.append(open);
+        sentList.append(row);
+        continue;
+      }
+      const label = document.createElement('label');
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = selectedPrintRequests.has(request.id);
+      checkbox.disabled = printOperationInProgress || individualPrintFiles.has(request.id);
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) selectedPrintRequests.add(request.id);
+        else selectedPrintRequests.delete(request.id);
+        updatePrintBatchButton();
+      });
+      label.append(checkbox, ' 共通PDFを送る ');
+      const fileLabel = document.createElement('label');
+      fileLabel.textContent = ' 個別PDF ';
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'application/pdf,.pdf';
+      fileInput.disabled = printOperationInProgress;
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        if (!validPrintPdf(file)) {
+          fileInput.value = '';
+          printBatchStatus.textContent = '15 MB以内のPDFを選んでください。';
+          return;
+        }
+        individualPrintFiles.set(request.id, file);
+        selectedPrintRequests.delete(request.id);
+        printBatchStatus.textContent = '';
+        renderPrintInbox();
+      });
+      fileLabel.append(fileInput);
+      row.append(label, open, fileLabel);
+      const assigned = individualPrintFiles.get(request.id);
+      if (assigned) {
+        const selection = document.createElement('p');
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.disabled = printOperationInProgress;
+        remove.textContent = '割り当てを外す';
+        remove.addEventListener('click', () => {
+          individualPrintFiles.delete(request.id);
+          renderPrintInbox();
+        });
+        selection.append(`${assigned.name} `, remove);
+        row.append(selection);
+      }
+      list.append(row);
+    }
+    printBatchForm.hidden = pending.length === 0;
+    updatePrintBatchButton();
+  }
+
+  function renderStudentPrintRequests() {
+    const section = document.getElementById('student-print-requests');
+    const list = document.getElementById('student-print-request-list');
+    section.hidden = !canManagePrintRequests();
+    list.replaceChildren();
+    if (section.hidden) return;
+    const requests = [...printRequests.values()].filter(request => normalizeStudentId(request.studentId) === currentModalStudentId);
+    if (!requests.length) list.textContent = 'リクプリはありません。';
+    for (const request of requests) {
+      const row = printRequestRow(request);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.disabled = printOperationInProgress;
+      if (request.status === 'sent') {
+        const file = document.createElement('p');
+        file.textContent = request.pdfName;
+        row.append(file);
+        button.className = 'withdraw-print';
+        button.textContent = '送付したPDFを削除';
+        button.addEventListener('click', () => withdrawPrintReply(request));
+      } else {
+        button.textContent = 'この依頼にプリントを送る';
+        button.addEventListener('click', () => {
+          selectPrintReply(request);
+          const fileInput = document.getElementById('pdf-upload-input');
+          fileInput.scrollIntoView({ block: 'nearest' });
+          fileInput.focus({ preventScroll: true });
+        });
+      }
+      row.append(button);
+      list.append(row);
+    }
+  }
+
+  function renderPrintRequests() {
+    renderPrintInbox();
+    renderStudentPrintRequests();
+  }
+
+  onAuthStateChanged(auth, async user => {
+    stopPrintInbox?.();
+    authorizedPrintUid = undefined;
+    printRequests.clear();
+    selectedPrintRequests.clear();
+    individualPrintFiles.clear();
+    printBatchForm.reset();
+    selectPrintReply(null);
+    printInboxLogin.hidden = Boolean(user);
+    renderPrintRequests();
+    if (!user) {
+      printInboxStatus.textContent = 'リクプリを確認するにはPDF送信用の講師アカウントでログインしてください。';
+      return;
+    }
+    printInboxStatus.textContent = '講師の権限を確認中…';
+    try {
+      // Only the teacher can read an entry that does not belong to a student.
+      await getDocFromServer(doc(db, 'print_requests', 'teacher-access-check'));
+    } catch (error) {
+      if (auth.currentUser?.uid !== user.uid) return;
+      printInboxLogin.hidden = false;
+      printInboxStatus.textContent = error.code === 'permission-denied'
+        ? 'リクプリを確認するにはPDF送信用の講師アカウントでログインしてください。'
+        : '講師の権限を確認できませんでした。通信を確認して画面を更新してください。';
+      return;
+    }
+    if (auth.currentUser?.uid !== user.uid) return;
+    authorizedPrintUid = user.uid;
+    printInboxStatus.textContent = 'リクプリを読み込み中…';
+    stopPrintInbox = onSnapshot(collection(db, 'print_requests'), { includeMetadataChanges: true }, snapshot => {
+      if (snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites || !canManagePrintRequests()) return;
+      printRequests.clear();
+      const ordered = snapshot.docs.sort((a, b) => (a.data().createdAt?.toMillis?.() || 0) - (b.data().createdAt?.toMillis?.() || 0));
+      for (const record of ordered) printRequests.set(record.id, { id: record.id, ...record.data() });
+      for (const id of selectedPrintRequests) {
+        if (printRequests.get(id)?.status !== 'pending') selectedPrintRequests.delete(id);
+      }
+      for (const id of individualPrintFiles.keys()) {
+        if (printRequests.get(id)?.status !== 'pending') individualPrintFiles.delete(id);
+      }
+      printInboxStatus.textContent = [...printRequests.values()].some(request => request.status === 'pending') ? '' : '未対応の依頼はありません。';
+      renderPrintRequests();
+    }, error => {
+      console.error('リクプリの取得エラー', error);
+      printInboxStatus.textContent = 'リクプリを確認できません。講師のログイン状態とFirebaseの設定を確認してください。';
+    });
+  });
+
+  printInboxLogin.addEventListener('submit', async event => {
+    event.preventDefault();
+    const button = printInboxLogin.querySelector('button');
+    const fields = new FormData(printInboxLogin);
+    button.disabled = true;
+    try {
+      const login = fields.get('login').trim();
+      await signInWithEmailAndPassword(auth, login.includes('@') ? login : `${login}@shigaku.local`, fields.get('password'));
+      printInboxLogin.reset();
+    } catch (error) {
+      printInboxStatus.textContent = 'ログインできませんでした。IDとパスワードを確認してください。';
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  function validPrintPdf(file) {
+    return file && (/\.pdf$/i.test(file.name) || file.type === 'application/pdf')
+      && file.name.length <= 255 && file.size > 0 && file.size <= 15 * 1024 * 1024;
+  }
+
+  async function deliverPrintRequest(request, file, message, textColor) {
+    const requestRef = doc(db, 'print_requests', request.id);
+    const path = `print_replies/${request.studentUid}/${request.id}/${crypto.randomUUID()}.pdf`;
+    const pdfRef = ref(storage, path);
+    await uploadBytes(pdfRef, file, { contentType: 'application/pdf' });
+    try {
+      await runTransaction(db, async transaction => {
+        const latest = await transaction.get(requestRef);
+        if (latest.data()?.status !== 'pending') throw new Error('この依頼はすでに対応されています。');
+        transaction.update(requestRef, {
+          status: 'sent', pdfPath: path, pdfName: file.name, message, textColor, sentAt: serverTimestamp()
+        });
+      });
+    } catch (error) {
+      // Confirm the final state before cleaning up an upload after an uncertain write.
+      const latest = await getDocFromServer(requestRef).catch(() => null);
+      if (latest?.data()?.pdfPath === path) return;
+      if (latest) await deleteObject(pdfRef).catch(cleanupError => console.error('未送付PDFの削除エラー', cleanupError));
+      throw error;
+    }
+  }
+
+  async function sendPrintReply(request, button, status, messageInput, fileInput, colorInput) {
+    if (printOperationInProgress || !canManagePrintRequests()) return;
+    const file = fileInput.files[0];
+    if (!validPrintPdf(file)) {
+      status.style.color = '#b91c1c';
+      status.textContent = '15 MB以内のPDFを選んでください。';
+      return;
+    }
+    if (messageInput.value.trim().length > 2000) {
+      status.style.color = '#b91c1c';
+      status.textContent = 'メッセージは2,000文字以内で入力してください。';
+      return;
+    }
+    printOperationInProgress = true;
+    button.disabled = true;
+    status.textContent = 'リクプリのPDFを送付中…';
+    renderPrintRequests();
+    try {
+      await deliverPrintRequest(request, file, messageInput.value.trim(), colorInput.value);
+      if (activePrintReply?.id !== request.id) return;
+      selectPrintReply(null);
+      fileInput.value = '';
+      messageInput.value = '';
+      status.style.color = '#15803d';
+      status.textContent = 'リクプリのPDFを送付しました。';
+    } catch (error) {
+      if (activePrintReply?.id !== request.id) return;
+      status.style.color = '#b91c1c';
+      status.textContent = error.code ? describeSendError(error, 'リクプリの送付') : error.message;
+    } finally {
+      printOperationInProgress = false;
+      button.disabled = false;
+      renderPrintRequests();
+    }
+  }
+
+  printBatchForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (printOperationInProgress || !canManagePrintRequests()) return;
+    const commonFile = printBatchFile.files[0];
+    if (selectedPrintRequests.size && !validPrintPdf(commonFile)) {
+      printBatchStatus.textContent = '15 MB以内のPDFを選んでください。';
+      return;
+    }
+    const assignments = [...printRequests.values()].filter(request => request.status === 'pending')
+      .map(request => ({ request, file: individualPrintFiles.get(request.id) || (selectedPrintRequests.has(request.id) ? commonFile : null) }))
+      .filter(({ file }) => file);
+    const names = assignments.map(({ request }) => STUDENT_RECORDS[normalizeStudentId(request.studentId)]?.name || request.studentId);
+    const summary = assignments.map(({ request, file }, index) => `${names[index]}（${request.subject}）：${file.name}`).join('\n');
+    if (!assignments.length || !confirm(`${assignments.length} 件のリクプリを送ります。\n\n${summary}`)) return;
+    printOperationInProgress = true;
+    let sent = 0;
+    const failures = [];
+    renderPrintRequests();
+    try {
+      for (const [index, { request, file }] of assignments.entries()) {
+        printBatchStatus.textContent = `${index + 1}／${assignments.length}件を送付中…`;
+        try {
+          if (!canManagePrintRequests()) throw new Error('講師のログインが必要です。');
+          await deliverPrintRequest(request, file, '', 'navy');
+          selectedPrintRequests.delete(request.id);
+          individualPrintFiles.delete(request.id);
+          sent += 1;
+        } catch (error) {
+          console.error('リクプリの一括送付エラー', error);
+          failures.push(names[index]);
+        }
+      }
+      printBatchStatus.textContent = failures.length
+        ? `${sent}件を送付しました。送れなかった依頼：${failures.join('、')}。未対応一覧から再送できます。`
+        : `${sent}件のリクプリにPDFを送付しました。`;
+      if (!failures.length) printBatchForm.reset();
+    } finally {
+      printOperationInProgress = false;
+      renderPrintRequests();
+    }
+  });
+
+  async function withdrawPrintReply(request) {
+    if (printOperationInProgress || !canManagePrintRequests()) return;
+    if (!confirm(`${request.pdfName} を削除しますか？\nお知らせからPDFが消え、リクプリは未対応に戻ります。`)) return;
+    const status = document.getElementById('print-action-status');
+    printOperationInProgress = true;
+    renderPrintRequests();
+    status.textContent = 'PDFを削除しています…';
+    try {
+      await deleteMessageWithPdf({ id: request.id, pdfUrl: request.pdfPath }, {
+        requirePdfAuth: async () => {
+          if (!canManagePrintRequests()) throw new Error('講師のログインが必要です。');
+        },
+        deletePdf: path => deleteObject(ref(storage, path)),
+        getPdfMetadata: path => getMetadata(ref(storage, path)),
+        deleteMessage: id => runTransaction(db, async transaction => {
+          const requestRef = doc(db, 'print_requests', id);
+          const latest = await transaction.get(requestRef);
+          if (latest.data()?.pdfPath !== request.pdfPath) return;
+          transaction.update(requestRef, {
+            status: 'pending', pdfPath: deleteField(), pdfName: deleteField(), message: deleteField(),
+            textColor: deleteField(), sentAt: deleteField()
+          });
+        })
+      });
+      status.textContent = 'PDFを削除しました。リクプリは未対応に戻りました。';
+    } catch (error) {
+      console.error('リクプリのPDF削除エラー', error);
+      status.textContent = '削除を完了できませんでした。もう一度お試しください。';
+    } finally {
+      printOperationInProgress = false;
+      renderPrintRequests();
+    }
+  }
 
   async function uploadPdfToStorage(file) {
     const fileName = `${Date.now()}_${file.name}`;
@@ -1009,6 +1421,7 @@ function sortAndRender(
 
 
   list.forEach(student => {
+    dashboardStudents.set(student.id, student);
 
     const tr =
       document.createElement('tr');
@@ -1329,6 +1742,9 @@ document.getElementById(
 
   function openStudentModal(student, studentName) {
     currentModalStudentId = student.id; 
+    selectPrintReply(null);
+    document.getElementById('print-action-status').textContent = '';
+    renderStudentPrintRequests();
     
     document.getElementById('modal-name').textContent = studentName;
     document.getElementById('modal-id').textContent = student.id;
@@ -1358,7 +1774,7 @@ document.getElementById(
 
         subjectsContainer.innerHTML += `
           <div class="subject-bar-container">
-            <div class="subject-name"><span>${subjName}</span><span>${count}回 <span style="color:#888; font-size:0.9em; font-weight:normal;">(${percentage}%)</span></span></div>
+          <div class="subject-name"><span>${escapeText(subjName)}</span><span>${count}回 <span style="color:#888; font-size:0.9em; font-weight:normal;">(${percentage}%)</span></span></div>
             <div class="bar-bg"><div class="bar-fill" style="width: ${percentage}%; background-color: ${barColor};"></div></div>
           </div>`;
       });
@@ -1387,7 +1803,7 @@ document.getElementById(
           const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '不明';
           const subject = data.subject || '教科不明';
           const unit = data.unit || '';
-          historyList.innerHTML += `<li><span style="color:#666; font-size:0.9em; margin-right:10px;">${dateStr}</span> <strong>${subject}</strong> <br><span style="font-size:0.9em; color:#444;">${unit}</span></li>`;
+          historyList.innerHTML += `<li><span style="color:#666; font-size:0.9em; margin-right:10px;">${dateStr}</span> <strong>${escapeText(subject)}</strong> <br><span style="font-size:0.9em; color:#444;">${escapeText(unit)}</span></li>`;
         });
       }
     } catch (e) {
@@ -1407,6 +1823,10 @@ document.getElementById(
     
     const sendButton = document.getElementById('send-msg-btn');
     if (sendButton.disabled) return;
+    if (activePrintReply) {
+      await sendPrintReply(activePrintReply, sendButton, statusText, msgInput, pdfInputElement, colorSelectElement);
+      return;
+    }
     const studentId = currentModalStudentId;
     const target = targetTypeElement && targetTypeElement.value !== 'individual'
       ? targetTypeElement.value : studentId;
@@ -1562,8 +1982,8 @@ async function loadSocialLogs() {
       <tr style="border-bottom: 1px solid #E2E8F0;">
         <td style="padding: 10px; color: #64748B; font-size: 0.8rem;">${dateStr}</td>
         <td style="padding: 10px; font-weight: bold; color: #0F3875;">${student}</td>
-        <td style="padding: 10px;">${topic}</td>
-        <td style="padding: 10px; font-weight: bold;">${scoreText}</td>
+        <td style="padding: 10px;">${escapeText(topic)}</td>
+        <td style="padding: 10px; font-weight: bold;">${escapeText(scoreText)}</td>
         <td style="padding: 10px; font-weight: bold; color: ${badgeColor};">${accPercent}%</td>
       </tr>
     `;
