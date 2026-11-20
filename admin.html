@@ -1921,6 +1921,12 @@ const initialDashboardLoad = initDashboard(false);
 // ==========================================
 // 社会クエスト管理用データ取得・描画・削除機能
 // ==========================================
+function escapeText(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
+}
+
 // 社会クエストの生徒IDを現在の名簿に照合し、氏名とIDを表示します。
 function renderSocialStudent(rawId) {
   const id = String(rawId ?? '').trim();
@@ -1930,9 +1936,6 @@ function renderSocialStudent(rawId) {
   const info = Object.prototype.hasOwnProperty.call(STUDENT_RECORDS, normalizedId)
     ? STUDENT_RECORDS[normalizedId]
     : null;
-  const escapeText = value => String(value).replace(/[&<>"']/g, char => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  })[char]);
   const displayId = id.endsWith('@shigaku.local')
     ? id.slice(0, -'@shigaku.local'.length)
     : id;
