@@ -95,6 +95,27 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 .contact-info { font-size: 0.75rem; color: var(--accent-green); font-weight: 500; }
 .message-content { color: #004098; font-weight: 600; line-height: 1.6; padding: 15px; font-size: 0.9em; background-color: #f9f9f9; border-radius: 8px; width: 100%; }
 
+.print-request { margin: -20px 0 28px; border: 1px solid #cedced; border-radius: 14px; background: #fff; color: #1a2e4a; }
+.print-request summary { padding: 15px 16px; cursor: pointer; font-weight: 700; }
+.print-request form { padding: 0 16px 16px; display: grid; gap: 12px; }
+.print-request fieldset { min-width: 0; border: 0; }
+.print-request legend, .print-request label[for] { font-weight: 700; }
+.print-subjects { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; margin-top: 6px; }
+.print-subjects label { position: relative; cursor: pointer; }
+.print-subjects input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.print-subjects span, #print-request-send { display: grid; min-height: 44px; place-items: center; border: 1px solid #cedced; border-radius: 8px; font: inherit; font-weight: 700; }
+.print-subjects span { background: #eff5fc; }
+.print-subjects input:checked + span, #print-request-send { color: #fff; background: #2963b1; border-color: #2963b1; }
+.print-subjects input:checked + span::after { content: '✓'; position: absolute; top: 0; right: 3px; font-size: .7em; }
+.print-subjects input:focus-visible + span { outline: 2px solid #1a2e4a; outline-offset: 2px; }
+.print-request textarea { display: block; width: 100%; margin-top: 6px; padding: 10px; min-height: 88px; resize: vertical; color: #1a2e4a; font: inherit; border: 1px solid #aebfd3; border-radius: 8px; }
+.print-request textarea::placeholder, #print-request-help { color: #52637a; }
+.print-request p { font-size: .9rem; line-height: 1.65; }
+.print-request strong { color: #8a5a14; }
+#print-request-send { padding: 6px 12px; cursor: pointer; }
+#print-request-send:disabled { opacity: .65; cursor: wait; }
+#print-request-status:empty { display: none; }
+
 /* 高さ自動調整が効いたカードグリッド */
 .card-grid { display: grid; grid-template-columns: 1fr; gap: 24px 20px; animation: fadeUp 0.8s ease both; align-items: stretch; width: 100%; }
 @media (min-width: 768px) { .container { max-width: 880px; } .card-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -149,7 +170,31 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
         <div class="contact-info">📧 info@shigakusemi.com &nbsp;&nbsp; 📞 0986-26-7532</div>
       </div>
       <div class="message-content" id="personal-message-area">読み込み中...</div>
+      <div id="print-deliveries" hidden></div>
     </div>
+    <details class="print-request" id="print-request" hidden>
+      <summary>リクプリ｜練習プリントをお願いする</summary>
+      <form id="print-request-form">
+        <fieldset>
+          <legend>教科を１つ選んでください</legend>
+          <div class="print-subjects">
+            <label><input type="radio" name="subject" value="英" aria-label="英語" required><span>英</span></label>
+            <label><input type="radio" name="subject" value="数" aria-label="数学"><span>数</span></label>
+            <label><input type="radio" name="subject" value="社" aria-label="社会"><span>社</span></label>
+            <label><input type="radio" name="subject" value="理" aria-label="理科"><span>理</span></label>
+            <label><input type="radio" name="subject" value="国" aria-label="国語"><span>国</span></label>
+          </div>
+        </fieldset>
+        <div>
+          <label for="print-request-detail">単元・ほしいプリントの内容</label>
+          <p id="print-request-help">単元名や練習したい問題を書いてください。教科書やワークのページ番号でも大丈夫です。</p>
+          <textarea id="print-request-detail" name="detail" maxlength="300" rows="3" required aria-describedby="print-request-help" placeholder="例：ワーク42ページの③に似た問題を５問くらい"></textarea>
+        </div>
+        <p>受付から <strong>２日以内</strong> に、プリントをお届けします！<br>届いたPDFは「先生からのお知らせ」から開けます。</p>
+        <button id="print-request-send" type="submit">先生にリクプリを送る</button>
+        <p id="print-request-status" role="status"></p>
+      </form>
+    </details>
 <div class="card-grid">
   <div class="section">
     <div class="section-label">Online learning — 解説動画</div>
@@ -270,8 +315,14 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     getDocs,
     doc,
     setDoc,
-    Timestamp
+    Timestamp,
+    addDoc,
+    serverTimestamp,
+    query,
+    where,
+    onSnapshot
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getStorage, ref, getBlob } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBQjnlOfeVvWQJHDxGE9cq-jGsYF3uo0PY",
@@ -285,6 +336,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
+  const storage = getStorage(app);
 
   const STUDENT_NAMES = {
     "student001@shigaku.local": "後田 莉乃葉",
@@ -318,6 +370,123 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 
   let currentStudentId = "";
   const socialQuestLink = document.getElementById('social-quest-link');
+
+  const requestPanel = document.getElementById('print-request');
+  const requestForm = document.getElementById('print-request-form');
+  const requestDetail = document.getElementById('print-request-detail');
+  const requestStatus = document.getElementById('print-request-status');
+  const requestSend = document.getElementById('print-request-send');
+  const requestExamples = {
+    英: '現在完了の「経験」と「継続」を見分ける問題',
+    数: '放物線と直線の交点を求める基本問題を５問くらい',
+    社: '江戸時代の三大改革を整理する一問一答',
+    理: '地震のＰ波・Ｓ波の到着時刻を求める計算問題',
+    国: '説明文で答えの根拠を本文から探す練習'
+  };
+  const defaultRequestExample = requestDetail.placeholder;
+  const printDeliveries = document.getElementById('print-deliveries');
+  let stopPrintDeliveries;
+
+  function watchPrintDeliveries(user) {
+    stopPrintDeliveries?.();
+    printDeliveries.replaceChildren();
+    printDeliveries.hidden = true;
+    if (!user || requestPanel.hidden) return;
+    const myRequests = query(collection(db, 'print_requests'), where('studentUid', '==', user.uid));
+    stopPrintDeliveries = onSnapshot(myRequests, { includeMetadataChanges: true }, snapshot => {
+      if (snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites || auth.currentUser?.uid !== user.uid) return;
+      const sent = snapshot.docs.map(record => record.data()).filter(request => request.status === 'sent')
+        .sort((first, second) => second.sentAt.toMillis() - first.sentAt.toMillis());
+      printDeliveries.replaceChildren();
+      printDeliveries.hidden = sent.length === 0;
+      for (const request of sent) {
+        const row = document.createElement('div');
+        row.className = 'message-content';
+        row.style.marginTop = '8px';
+        const title = document.createElement('strong');
+        title.textContent = `リクプリ（${request.subject}）のプリントが届きました`;
+        const detail = document.createElement('p');
+        detail.style.overflowWrap = 'anywhere';
+        detail.style.whiteSpace = 'pre-wrap';
+        detail.textContent = request.message || request.detail;
+        detail.style.color = ({ navy: '#004098', black: '#222222', red: '#aa261d' })[request.textColor] || '#004098';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = 'PDFをダウンロード';
+        button.style.cssText = 'padding:6px 12px;margin-top:6px;color:white;background:#2963b1;border:0;border-radius:5px;font:inherit;cursor:pointer';
+        const status = document.createElement('p');
+        status.setAttribute('role', 'status');
+        button.addEventListener('click', async () => {
+          button.disabled = true;
+          status.textContent = 'PDFを読み込み中…';
+          try {
+            const blob = await getBlob(ref(storage, request.pdfPath), 15 * 1024 * 1024);
+            if (auth.currentUser?.uid !== user.uid) return;
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = request.pdfName;
+            document.body.append(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 60_000);
+            status.textContent = '';
+          } catch (error) {
+            console.error('リクプリPDFの取得エラー', error);
+            status.textContent = ['storage/object-not-found', 'storage/unauthorized'].includes(error.code)
+              ? 'このPDFは現在利用できません。再送が必要な場合は先生にお知らせください。'
+              : 'PDFを取得できませんでした。もう一度お試しください。';
+          } finally {
+            button.disabled = false;
+          }
+        });
+        row.append(title, detail, button, status);
+        printDeliveries.append(row);
+      }
+    }, error => console.error('送付済みリクプリの取得エラー', error));
+  }
+
+  requestForm.addEventListener('change', event => {
+    if (event.target.name === 'subject') {
+      requestDetail.placeholder = `例：${requestExamples[event.target.value]}`;
+    }
+  });
+
+  requestForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (requestSend.disabled || requestPanel.hidden) return;
+    const user = auth.currentUser;
+    const subject = new FormData(requestForm).get('subject');
+    const detail = requestDetail.value.trim();
+    if (!user?.email || !Object.hasOwn(requestExamples, subject) || !detail) {
+      requestStatus.textContent = '教科を選び、ほしいプリントの内容を書いてください。';
+      return;
+    }
+
+    requestSend.disabled = true;
+    requestStatus.textContent = '先生に送っています…';
+    try {
+      await addDoc(collection(db, 'print_requests'), {
+        studentUid: user.uid,
+        studentId: user.email,
+        subject,
+        detail,
+        status: 'pending',
+        createdAt: serverTimestamp()
+      });
+      if (auth.currentUser?.uid !== user.uid) return;
+      requestForm.reset();
+      requestDetail.placeholder = defaultRequestExample;
+      requestStatus.textContent = '先生にリクプリを送りました。２日以内にプリントをお届けします。';
+    } catch (error) {
+      console.error('リクプリの送信エラー', error);
+      if (auth.currentUser?.uid === user.uid) {
+        requestStatus.textContent = '送信できませんでした。入力した内容を確認して、もう一度お試しください。';
+      }
+    } finally {
+      requestSend.disabled = false;
+    }
+  });
 
   // 1. ログイン処理
   const loginBtn = document.getElementById('login-btn') || document.querySelector('button[type="submit"]') || document.querySelector('.login-btn');
@@ -405,26 +574,34 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
       });
 
       const recentMsgs = msgs.slice(0, 5);
-      let htmlContent = `<span style="color: #2a9d8f; font-size: 1.1rem;"><strong>${displayName} さんへのお知らせ</strong></span><br><br>`;
-      
-      if (recentMsgs.length > 0) {
-        recentMsgs.forEach(msg => {
-          const applyColor = colorMap[msg.textColor] || "#004098";
-          htmlContent += `<div style="border-bottom: 1px solid #eee; padding: 15px 0;">`;
-          htmlContent += `<div style="margin-bottom: 8px; font-weight: bold; color: ${applyColor};">${(msg.message || '').replace(/\n/g, '<br>')}</div>`;
-          if (msg.pdfUrl) {
-            htmlContent += `<a href="${msg.pdfUrl}" target="_blank" style="display: inline-block; padding: 8px 16px; background-color: #2a9d8f; color: white; text-decoration: none; border-radius: 5px; font-size: 0.85em; font-weight: bold;">📄 添付ファイルを開く</a>`;
-          }
-          htmlContent += `</div>`;
-        });
-      } else {
-        htmlContent += `<div>現在お知らせはありません。</div>`;
+      if (currentStudentId !== studentEmail) return;
+      const heading = document.createElement('strong');
+      heading.style.cssText = 'display:block;color:#237d73;font-size:1.1rem;margin-bottom:12px';
+      heading.textContent = `${displayName} さんへのお知らせ`;
+      msgArea.replaceChildren(heading);
+      for (const msg of recentMsgs) {
+        const row = document.createElement('div');
+        row.style.cssText = 'border-bottom:1px solid #eee;padding:15px 0';
+        const message = document.createElement('div');
+        message.style.cssText = 'margin-bottom:8px;font-weight:bold;white-space:pre-wrap;overflow-wrap:anywhere';
+        message.style.color = colorMap[msg.textColor] || '#004098';
+        message.textContent = msg.message || '';
+        row.append(message);
+        if (typeof msg.pdfUrl === 'string' && msg.pdfUrl.startsWith('https://')) {
+          const link = document.createElement('a');
+          link.href = msg.pdfUrl;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.style.cssText = 'display:inline-block;padding:8px 16px;background:#2a9d8f;color:white;text-decoration:none;border-radius:5px;font-size:.85em;font-weight:bold';
+          link.textContent = '📄 添付ファイルを開く';
+          row.append(link);
+        }
+        msgArea.append(row);
       }
-      
-      msgArea.innerHTML = htmlContent;
+      if (!recentMsgs.length) msgArea.append('現在お知らせはありません。');
     } catch (e) {
       console.error(e);
-      msgArea.innerHTML = "お知らせの読み込みに失敗しました。";
+      if (currentStudentId === studentEmail) msgArea.textContent = 'お知らせの読み込みに失敗しました。';
     }
   }
 
@@ -435,6 +612,13 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
     const portalContent = document.getElementById('portal-content');
 
     if (loadingWrapper) loadingWrapper.style.display = 'none'; 
+    requestPanel.hidden = !user?.email || !user.email.endsWith('@shigaku.local')
+      || /^(teacher|guest|sky)@/i.test(user.email);
+    requestPanel.open = false;
+    requestForm.reset();
+    requestDetail.placeholder = defaultRequestExample;
+    requestStatus.textContent = '';
+    watchPrintDeliveries(user);
     
     if (user) {
       currentStudentId = user.email.trim().toLowerCase();
